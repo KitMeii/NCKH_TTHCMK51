@@ -1,0 +1,1695 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Thi thử - Giảng viên Ảo TTHCM</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <style>
+      .exam-tab {
+        flex: 1;
+        padding: 12px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        cursor: pointer;
+        border-bottom: 3px solid transparent;
+        color: var(--gray-400);
+        transition: all 0.2s;
+      }
+      .exam-tab.active {
+        color: var(--red);
+        border-bottom-color: var(--red);
+      }
+      .q-nav-dot {
+        width: 26px;
+        height: 26px;
+        border-radius: 50%;
+        background: var(--gray-200);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+        flex-shrink: 0;
+        border: 2px solid transparent;
+      }
+      .q-nav-dot.answered {
+        background: var(--red);
+        color: white;
+      }
+      .q-nav-dot.current {
+        border-color: var(--gold);
+      }
+
+      /* Oral exam */
+      .oral-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+        margin-bottom: 14px;
+      }
+      .oral-header {
+        background: linear-gradient(135deg, #0d47a1, #1565c0);
+        padding: 16px 20px;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .oral-num {
+        width: 40px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.15);
+        border: 2px solid #f9a825;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Oswald", sans-serif;
+        font-weight: 700;
+      }
+      .oral-body {
+        padding: 20px;
+      }
+      .oral-question {
+        font-size: 0.95rem;
+        font-weight: 700;
+        line-height: 1.6;
+        margin-bottom: 16px;
+        color: var(--gray-800);
+      }
+      .oral-textarea {
+        width: 100%;
+        border: 1.5px solid var(--gray-300);
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-size: 0.855rem;
+        font-family: "Be Vietnam Pro", sans-serif;
+        resize: vertical;
+        outline: none;
+        min-height: 100px;
+        box-sizing: border-box;
+        transition: border 0.2s;
+      }
+      .oral-textarea:focus {
+        border-color: #1565c0;
+      }
+      .oral-timer {
+        font-family: "Oswald", sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--red);
+        text-align: center;
+        margin-bottom: 10px;
+      }
+
+      /* Follow-up questions */
+      .followup-panel {
+        background: #f3f8ff;
+        border: 1.5px solid #90caf9;
+        border-radius: 12px;
+        padding: 14px;
+        margin-top: 12px;
+        display: none;
+      }
+      .followup-panel.show {
+        display: block;
+        animation: fadeIn 0.3s ease;
+      }
+      .followup-q {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #0d47a1;
+        margin-bottom: 8px;
+      }
+      .followup-input {
+        width: 100%;
+        border: 1.5px solid #90caf9;
+        border-radius: 8px;
+        padding: 9px 12px;
+        font-size: 0.82rem;
+        font-family: "Be Vietnam Pro", sans-serif;
+        outline: none;
+        box-sizing: border-box;
+      }
+      .followup-input:focus {
+        border-color: #1565c0;
+      }
+
+      /* AI feedback */
+      .ai-feedback {
+        padding: 12px 14px;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        line-height: 1.6;
+        margin-top: 10px;
+      }
+      .ai-feedback.good {
+        background: #e8f5e9;
+        border-left: 3px solid #2e7d32;
+        color: #1b5e20;
+      }
+      .ai-feedback.ok {
+        background: #fff8e1;
+        border-left: 3px solid #f57f17;
+        color: #5d4037;
+      }
+      .ai-feedback.bad {
+        background: #ffebee;
+        border-left: 3px solid var(--red);
+        color: #b71c1c;
+      }
+
+      /* Score summary */
+      .score-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: var(--gray-50);
+        margin-bottom: 8px;
+      }
+      .score-bar {
+        height: 6px;
+        background: var(--gray-200);
+        border-radius: 3px;
+        margin-top: 4px;
+        overflow: hidden;
+      }
+      .score-fill {
+        height: 100%;
+        background: var(--red);
+        border-radius: 3px;
+        transition: width 0.5s;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-inner">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-badge"><i class="fas fa-star"></i>MTA</div>
+          <div class="logo-info">
+            <div class="logo-title">Thi thử</div>
+            <div class="logo-sub">Trắc nghiệm & Vấn đáp AI</div>
+          </div>
+        </a>
+        <div class="header-actions">
+          <div
+            id="timerBox"
+            style="
+              display: none;
+              background: var(--red);
+              color: white;
+              padding: 5px 10px;
+              border-radius: 8px;
+              font-family: &quot;Oswald&quot;, sans-serif;
+              font-weight: 700;
+              font-size: 0.9rem;
+            "
+          >
+            <i class="fas fa-clock"></i> <span id="timerDisplay">45:00</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="container">
+        <!-- START SCREEN -->
+        <div id="startScreen">
+          <div class="page-title">Thi thử Tư tưởng HCM</div>
+
+          <!-- Mode tabs -->
+          <div
+            class="card"
+            style="padding: 0; overflow: hidden; margin-bottom: 14px"
+          >
+            <div
+              style="display: flex; border-bottom: 1px solid var(--gray-100)"
+            >
+              <div
+                class="exam-tab active"
+                id="tabTN"
+                onclick="switchMode('tn')"
+              >
+                <i class="fas fa-check-circle"></i> Trắc nghiệm
+              </div>
+              <div class="exam-tab" id="tabVD" onclick="switchMode('vd')">
+                <i class="fas fa-comments"></i> Vấn đáp AI
+              </div>
+            </div>
+
+            <!-- TN info -->
+            <div id="infoTN" style="padding: 20px; text-align: center">
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: 1fr 1fr;
+                  gap: 10px;
+                  margin-bottom: 16px;
+                  text-align: left;
+                "
+              >
+                <div
+                  style="
+                    background: var(--gray-50);
+                    padding: 12px;
+                    border-radius: var(--radius);
+                  "
+                >
+                  <div
+                    style="
+                      font-size: 0.7rem;
+                      color: var(--gray-500);
+                      margin-bottom: 3px;
+                    "
+                  >
+                    Số câu hỏi
+                  </div>
+                  <div
+                    style="
+                      font-family: &quot;Oswald&quot;, sans-serif;
+                      font-size: 1.5rem;
+                      font-weight: 700;
+                      color: var(--red);
+                    "
+                  >
+                    40 câu
+                  </div>
+                </div>
+                <div
+                  style="
+                    background: var(--gray-50);
+                    padding: 12px;
+                    border-radius: var(--radius);
+                  "
+                >
+                  <div
+                    style="
+                      font-size: 0.7rem;
+                      color: var(--gray-500);
+                      margin-bottom: 3px;
+                    "
+                  >
+                    Thời gian
+                  </div>
+                  <div
+                    style="
+                      font-family: &quot;Oswald&quot;, sans-serif;
+                      font-size: 1.5rem;
+                      font-weight: 700;
+                      color: var(--red);
+                    "
+                  >
+                    45 phút
+                  </div>
+                </div>
+                <div
+                  style="
+                    background: var(--gray-50);
+                    padding: 12px;
+                    border-radius: var(--radius);
+                  "
+                >
+                  <div
+                    style="
+                      font-size: 0.7rem;
+                      color: var(--gray-500);
+                      margin-bottom: 3px;
+                    "
+                  >
+                    Điểm đạt
+                  </div>
+                  <div
+                    style="
+                      font-family: &quot;Oswald&quot;, sans-serif;
+                      font-size: 1.5rem;
+                      font-weight: 700;
+                      color: #2e7d32;
+                    "
+                  >
+                    5.0/10
+                  </div>
+                </div>
+                <div
+                  style="
+                    background: var(--gray-50);
+                    padding: 12px;
+                    border-radius: var(--radius);
+                  "
+                >
+                  <div
+                    style="
+                      font-size: 0.7rem;
+                      color: var(--gray-500);
+                      margin-bottom: 3px;
+                    "
+                  >
+                    Nguồn câu hỏi
+                  </div>
+                  <div
+                    style="
+                      font-family: &quot;Oswald&quot;, sans-serif;
+                      font-size: 1rem;
+                      font-weight: 700;
+                      color: var(--gray-700);
+                    "
+                  >
+                    DB + mặc định
+                  </div>
+                </div>
+              </div>
+              <button
+                class="btn btn-red btn-full"
+                style="padding: 14px; font-size: 1rem"
+                onclick="startExam('tn')"
+              >
+                <i class="fas fa-play"></i> BẮT ĐẦU THI TRẮC NGHIỆM
+              </button>
+            </div>
+
+            <!-- VD info -->
+            <div
+              id="infoVD"
+              style="padding: 20px; display: none; text-align: center"
+            >
+              <div
+                style="
+                  background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+                  border-radius: 12px;
+                  padding: 16px;
+                  margin-bottom: 14px;
+                  text-align: left;
+                "
+              >
+                <div
+                  style="font-weight: 700; color: #0d47a1; margin-bottom: 8px"
+                >
+                  <i class="fas fa-robot"></i> Cách thức thi vấn đáp AI
+                </div>
+                <div
+                  style="font-size: 0.82rem; color: #1565c0; line-height: 1.7"
+                >
+                  1️⃣ Nhận <strong>2 câu hỏi chính</strong> (tự luận)<br />
+                  2️⃣ Gõ câu trả lời trong <strong>3 phút/câu</strong><br />
+                  3️⃣ AI đặt lại <strong>2-3 câu hỏi phụ</strong><br />
+                  4️⃣ Trả lời xong → AI <strong>tổng hợp điểm</strong> và nhận
+                  xét
+                </div>
+              </div>
+              <div
+                style="
+                  background: #fff3e0;
+                  border: 1px solid #ffe082;
+                  border-radius: 10px;
+                  padding: 10px 14px;
+                  font-size: 0.78rem;
+                  color: #5d4037;
+                  text-align: left;
+                  margin-bottom: 14px;
+                "
+              >
+                <i
+                  class="fas fa-key"
+                  style="color: #f57f17; margin-right: 5px"
+                ></i>
+                Cần <strong>Groq API Key</strong> để AI chấm điểm. Nếu chưa có,
+                hệ thống sẽ dùng chấm tự động cơ bản.
+              </div>
+              <button
+                class="btn btn-full"
+                style="
+                  padding: 14px;
+                  font-size: 1rem;
+                  background: linear-gradient(135deg, #0d47a1, #1565c0);
+                  color: white;
+                  border: none;
+                  border-radius: 10px;
+                  cursor: pointer;
+                  font-family: &quot;Be Vietnam Pro&quot;, sans-serif;
+                  font-weight: 700;
+                "
+                onclick="startExam('vd')"
+              >
+                <i class="fas fa-microphone"></i> BẮT ĐẦU THI VẤN ĐÁP
+              </button>
+            </div>
+          </div>
+
+          <!-- History -->
+          <div class="card">
+            <div class="card-title">
+              <i class="fas fa-history"></i>Lịch sử thi của bạn
+            </div>
+            <div id="historyList">
+              <div class="empty"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TRẮC NGHIỆM SCREEN -->
+        <div id="tnScreen" style="display: none">
+          <div style="margin-bottom: 12px">
+            <div
+              style="
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 6px;
+              "
+            >
+              <span
+                style="
+                  font-size: 0.8rem;
+                  font-weight: 600;
+                  color: var(--gray-600);
+                "
+                id="tnCounter"
+                >Câu 1/40</span
+              >
+              <span
+                style="font-size: 0.8rem; color: var(--gray-500)"
+                id="tnAnswered"
+                >Đã trả lời: 0/40</span
+              >
+            </div>
+            <div class="prog-track">
+              <div class="prog-fill" id="tnProg" style="width: 0%"></div>
+            </div>
+          </div>
+          <div style="overflow-x: auto; margin-bottom: 10px">
+            <div
+              id="tnNav"
+              style="
+                display: flex;
+                gap: 5px;
+                padding: 2px;
+                min-width: max-content;
+              "
+            ></div>
+          </div>
+          <div class="card" id="tnQCard">
+            <div
+              style="
+                font-size: 0.95rem;
+                font-weight: 600;
+                line-height: 1.6;
+                margin-bottom: 16px;
+              "
+              id="tnQuestion"
+            ></div>
+            <div id="tnOptions"></div>
+          </div>
+          <div style="display: flex; gap: 10px; margin-top: 4px">
+            <button
+              class="btn btn-outline"
+              id="tnPrev"
+              onclick="goTN(-1)"
+              disabled
+            >
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <button class="btn btn-red" style="flex: 1" onclick="goTN(1)">
+              Tiếp <i class="fas fa-chevron-right"></i>
+            </button>
+            <button
+              class="btn"
+              style="
+                background: #ffebee;
+                color: var(--red);
+                border: 1px solid #ffcdd2;
+                border-radius: 10px;
+                padding: 10px 14px;
+                cursor: pointer;
+                font-family: &quot;Be Vietnam Pro&quot;, sans-serif;
+                font-weight: 700;
+              "
+              onclick="confirmSubmitTN()"
+            >
+              <i class="fas fa-paper-plane"></i> Nộp
+            </button>
+          </div>
+        </div>
+
+        <!-- VẤN ĐÁP SCREEN -->
+        <div id="vdScreen" style="display: none">
+          <div id="vdContent"></div>
+        </div>
+
+        <!-- RESULT SCREEN -->
+        <div id="resultScreen" style="display: none">
+          <div class="card result-card">
+            <div id="resEmoji" style="font-size: 3rem; margin-bottom: 8px">
+              🎉
+            </div>
+            <div class="result-score" id="resScore">0</div>
+            <div
+              style="font-size: 1rem; font-weight: 700; margin-top: 2px"
+              id="resType"
+            >
+              /10 điểm
+            </div>
+            <div class="result-label" id="resMsg">—</div>
+            <div
+              style="font-size: 0.78rem; color: #2e7d32; margin-top: 6px"
+              id="resSaved"
+            ></div>
+            <div id="resDetail" style="margin: 16px 0; text-align: left"></div>
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <button
+                class="btn btn-red btn-full"
+                onclick="
+                  document.getElementById('resultScreen').style.display =
+                    'none';
+                  document.getElementById('startScreen').style.display =
+                    'block';
+                  loadHistory();
+                "
+              >
+                <i class="fas fa-list"></i> Xem lịch sử
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <nav class="bottom-nav">
+      <a href="index.html" class="nav-item"
+        ><i class="fas fa-home"></i><span>Trang chủ</span></a
+      >
+      <a href="chat.html" class="nav-item"
+        ><i class="fas fa-comment-dots"></i><span>Chat AI</span></a
+      >
+      <a href="luyen-tap.html" class="nav-item"
+        ><i class="fas fa-book"></i><span>Luyện tập</span></a
+      >
+      <a href="thi-thu.html" class="nav-item active"
+        ><i class="fas fa-pencil-alt"></i><span>Thi thử</span></a
+      >
+      <a href="tien-do.html" class="nav-item"
+        ><i class="fas fa-calendar-alt"></i><span>Tiến độ</span></a
+      >
+      <a href="xep-hang.html" class="nav-item"
+        ><i class="fas fa-trophy"></i><span>Bảng XH</span></a
+      >
+      <a href="giang-bai.html" class="nav-item"
+        ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
+      >
+      <a href="cai-dat.html" class="nav-item"
+        ><i class="fas fa-cog"></i><span>Cài đặt</span></a
+      >
+    </nav>
+
+    <script>
+      if (localStorage.getItem("darkMode") === "1")
+        document.body.classList.add("dark");
+      const LETTERS = ["A", "B", "C", "D"];
+      let currentUser = null;
+      let groqKey = localStorage.getItem("groqKey") || "";
+
+      // ===== TN State =====
+      let tnQuestions = [],
+        tnAnswers = [],
+        tnCurrent = 0,
+        tnTimer = null,
+        tnTimeLeft = 45 * 60,
+        tnStart = null;
+
+      // ===== VD State =====
+      let vdQuestions = [],
+        vdCurrentQ = 0,
+        vdFollowupIdx = 0,
+        vdFollowups = [],
+        vdAnswers = [],
+        vdFollowupAnswers = [],
+        vdTimers = [];
+
+      function shuffle(arr) {
+        return [...arr].sort(() => Math.random() - 0.5);
+      }
+
+      async function init() {
+        currentUser = await requireAuth();
+        if (!currentUser) return;
+        // Load Groq key từ Supabase profile (ưu tiên hơn localStorage)
+        const profile = await getProfile(currentUser.id);
+        if (profile?.groq_api_key) {
+          groqKey = profile.groq_api_key;
+          localStorage.setItem("groqKey", groqKey);
+        }
+        loadHistory();
+      }
+
+      function switchMode(mode) {
+        document
+          .getElementById("tabTN")
+          .classList.toggle("active", mode === "tn");
+        document
+          .getElementById("tabVD")
+          .classList.toggle("active", mode === "vd");
+        document.getElementById("infoTN").style.display =
+          mode === "tn" ? "block" : "none";
+        document.getElementById("infoVD").style.display =
+          mode === "vd" ? "block" : "none";
+      }
+
+      // ======================== LOAD POOL ========================
+      async function loadPool(count) {
+        // Try from Supabase first
+        const { data } = await sb.from("questions").select("*").limit(200);
+        let pool = [];
+        if (data && data.length > 0) {
+          pool = data.map((q) => ({
+            q: q.question,
+            opts: [q.option_a, q.option_b, q.option_c, q.option_d].filter(
+              Boolean,
+            ),
+            ans: q.correct_answer,
+            exp: q.explanation || "",
+          }));
+        }
+        // Always supplement with built-in
+        pool = [...pool, ...BUILTIN_POOL];
+        return shuffle(pool).slice(0, count);
+      }
+
+      async function loadVDPool() {
+        const { data } = await sb.from("oral_questions").select("*").limit(20);
+        if (data && data.length >= 2) return shuffle(data).slice(0, 2);
+        return shuffle(BUILTIN_ORAL).slice(0, 2);
+      }
+
+      // ======================== START ========================
+      async function startExam(mode) {
+        document.getElementById("startScreen").style.display = "none";
+        document.getElementById("resultScreen").style.display = "none";
+
+        if (mode === "tn") {
+          tnQuestions = await loadPool(40);
+          tnAnswers = new Array(tnQuestions.length).fill(-1);
+          tnCurrent = 0;
+          tnTimeLeft = 45 * 60;
+          tnStart = Date.now();
+          document.getElementById("tnScreen").style.display = "block";
+          document.getElementById("timerBox").style.display = "flex";
+          buildTNNav();
+          renderTNQ();
+          startTNTimer();
+        } else {
+          const oralQs = await loadVDPool();
+          vdQuestions = oralQs;
+          vdCurrentQ = 0;
+          vdFollowupIdx = 0;
+          vdAnswers = [];
+          vdFollowupAnswers = [];
+          document.getElementById("vdScreen").style.display = "block";
+          document.getElementById("timerBox").style.display = "flex";
+          tnTimeLeft = vdQuestions.length * 3 * 60; // 3 min per question
+          startTNTimer();
+          renderVDQuestion(0);
+        }
+      }
+
+      // ======================== TN ========================
+      function startTNTimer() {
+        clearInterval(tnTimer);
+        tnTimer = setInterval(() => {
+          tnTimeLeft--;
+          const m = Math.floor(tnTimeLeft / 60),
+            s = tnTimeLeft % 60;
+          document.getElementById("timerDisplay").textContent =
+            `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+          if (tnTimeLeft <= 300)
+            document.getElementById("timerBox").style.background = "#b71c1c";
+          if (tnTimeLeft <= 0) {
+            clearInterval(tnTimer);
+            submitTN();
+          }
+        }, 1000);
+      }
+
+      function buildTNNav() {
+        document.getElementById("tnNav").innerHTML = tnQuestions
+          .map(
+            (_, i) =>
+              `<div class="q-nav-dot" id="tnNav${i}" onclick="jumpTN(${i})">${i + 1}</div>`,
+          )
+          .join("");
+      }
+
+      function updateTNNav() {
+        tnQuestions.forEach((_, i) => {
+          const d = document.getElementById(`tnNav${i}`);
+          if (!d) return;
+          d.className =
+            "q-nav-dot" +
+            (tnAnswers[i] !== -1 ? " answered" : "") +
+            (i === tnCurrent ? " current" : "");
+        });
+      }
+
+      function renderTNQ() {
+        const q = tnQuestions[tnCurrent];
+        document.getElementById("tnCounter").textContent =
+          `Câu ${tnCurrent + 1}/${tnQuestions.length}`;
+        document.getElementById("tnAnswered").textContent =
+          `Đã trả lời: ${tnAnswers.filter((x) => x !== -1).length}/${tnQuestions.length}`;
+        document.getElementById("tnProg").style.width =
+          ((tnCurrent + 1) / tnQuestions.length) * 100 + "%";
+        document.getElementById("tnQuestion").textContent = q.q;
+        document.getElementById("tnOptions").innerHTML = q.opts
+          .map(
+            (o, i) =>
+              `<button class="option-btn ${tnAnswers[tnCurrent] === i ? "correct" : ""}" onclick="selectTN(${i})">
+      <div class="opt-letter">${LETTERS[i]}</div><span>${o}</span>
+    </button>`,
+          )
+          .join("");
+        document.getElementById("tnPrev").disabled = tnCurrent === 0;
+        updateTNNav();
+      }
+
+      function selectTN(i) {
+        tnAnswers[tnCurrent] = i;
+        document
+          .querySelectorAll("#tnOptions .option-btn")
+          .forEach((b, idx) => {
+            b.className = "option-btn" + (idx === i ? " correct" : "");
+          });
+        document.getElementById("tnAnswered").textContent =
+          `Đã trả lời: ${tnAnswers.filter((x) => x !== -1).length}/${tnQuestions.length}`;
+        updateTNNav();
+      }
+
+      function jumpTN(i) {
+        tnCurrent = i;
+        renderTNQ();
+      }
+      function goTN(dir) {
+        const n = tnCurrent + dir;
+        if (n >= 0 && n < tnQuestions.length) {
+          tnCurrent = n;
+          renderTNQ();
+        }
+      }
+
+      function confirmSubmitTN() {
+        const ua = tnAnswers.filter((x) => x === -1).length;
+        if (
+          confirm(
+            ua > 0
+              ? `Còn ${ua} câu chưa trả lời. Xác nhận nộp bài?`
+              : "Xác nhận nộp bài?",
+          )
+        )
+          submitTN();
+      }
+
+      async function submitTN() {
+        clearInterval(tnTimer);
+        document.getElementById("timerBox").style.display = "none";
+        document.getElementById("timerBox").style.background = "var(--red)";
+        const elapsed = Math.floor((Date.now() - tnStart) / 1000);
+        let correct = 0;
+        tnQuestions.forEach((q, i) => {
+          if (tnAnswers[i] === q.ans) correct++;
+        });
+        const score = parseFloat(
+          ((correct / tnQuestions.length) * 10).toFixed(1),
+        );
+        document.getElementById("tnScreen").style.display = "none";
+
+        // Wrong answers review
+        const wrong = tnQuestions.filter((q, i) => tnAnswers[i] !== q.ans);
+        let detailHtml = "";
+        if (wrong.length > 0) {
+          detailHtml =
+            `<div style="font-weight:700;margin-bottom:8px;font-size:0.85rem;">Câu trả lời sai (${wrong.length} câu):</div>` +
+            wrong
+              .map(
+                (
+                  q,
+                ) => `<div style="padding:8px 10px;background:var(--gray-50);border-radius:8px;margin-bottom:6px;font-size:0.78rem;">
+      <div style="font-weight:600;margin-bottom:3px;">${q.q}</div>
+      <div style="color:var(--red);">✗ Bạn chọn: ${q.opts[tnAnswers[tnQuestions.indexOf(q)]] || "Chưa trả lời"}</div>
+      <div style="color:#2e7d32;">✓ Đáp án: ${q.opts[q.ans]}</div>
+      ${q.exp ? `<div style="color:var(--gray-600);margin-top:3px;">💡 ${q.exp}</div>` : ""}
+    </div>`,
+              )
+              .join("");
+        }
+
+        showResult({
+          score,
+          correct,
+          total: tnQuestions.length,
+          type: "Trắc nghiệm",
+          elapsed,
+          detail: detailHtml,
+        });
+        if (currentUser)
+          await saveExamResult(currentUser.id, {
+            score,
+            correct,
+            total: tnQuestions.length,
+            timeSpent: elapsed,
+          });
+      }
+
+      // ======================== VẤN ĐÁP ========================
+      function renderVDQuestion(idx) {
+        const q = vdQuestions[idx];
+        const timerKey = `vd_q${idx}`;
+        let timeLeft = 180; // 3 minutes
+        let timerInterval;
+
+        document.getElementById("vdContent").innerHTML = `
+    <div class="oral-card">
+      <div class="oral-header">
+        <div class="oral-num">${idx + 1}</div>
+        <div>
+          <div style="font-weight:700;">Câu hỏi ${idx + 1}/${vdQuestions.length}</div>
+          <div style="font-size:0.72rem;opacity:0.8;">Tự luận · Vấn đáp AI</div>
+        </div>
+        <div style="margin-left:auto;font-size:1.2rem;font-weight:700;font-family:'Oswald',sans-serif;" id="vdTimer${idx}">3:00</div>
+      </div>
+      <div class="oral-body">
+        <div class="oral-question">${q.question}</div>
+        <div style="font-size:0.72rem;color:var(--gray-500);margin-bottom:8px;">💡 Trả lời bằng ngôn ngữ của bạn, càng chi tiết càng tốt</div>
+        <textarea class="oral-textarea" id="vdAns${idx}" placeholder="Nhập câu trả lời của bạn..."></textarea>
+        <div id="followupArea${idx}"></div>
+        <div id="feedbackArea${idx}"></div>
+        <div style="margin-top:12px;display:flex;gap:8px;">
+          <button class="btn btn-red btn-full" id="vdSubmitBtn${idx}" onclick="submitVDAnswer(${idx})">
+            <i class="fas fa-paper-plane"></i> Gửi câu trả lời
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+        // Start timer
+        const timerEl = document.getElementById(`vdTimer${idx}`);
+        timerInterval = setInterval(() => {
+          timeLeft--;
+          const m = Math.floor(timeLeft / 60),
+            s = timeLeft % 60;
+          timerEl.textContent = `${m}:${String(s).padStart(2, "0")}`;
+          document.getElementById("timerDisplay").textContent =
+            `${m}:${String(s).padStart(2, "0")}`;
+          if (timeLeft <= 30) timerEl.style.color = "#ef5350";
+          if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            submitVDAnswer(idx, true);
+          }
+        }, 1000);
+        vdTimers.push(timerInterval);
+      }
+
+      async function submitVDAnswer(idx, timeout = false) {
+        vdTimers.forEach((t) => clearInterval(t));
+        const ans = document.getElementById(`vdAns${idx}`).value.trim();
+        const q = vdQuestions[idx];
+        const btn = document.getElementById(`vdSubmitBtn${idx}`);
+        btn.disabled = true;
+        btn.innerHTML =
+          '<i class="fas fa-spinner fa-spin"></i> Đang đánh giá...';
+
+        vdAnswers[idx] = ans;
+
+        // Generate follow-up questions via Groq
+        const followups = await generateFollowups(
+          q.question,
+          ans,
+          q.expected_answer || "",
+        );
+        vdFollowups = followups;
+        vdFollowupIdx = 0;
+        vdFollowupAnswers[idx] = [];
+
+        if (followups.length > 0) {
+          renderFollowup(idx, 0);
+        } else {
+          await finalizeVD(idx);
+        }
+      }
+
+      async function generateFollowups(mainQ, answer, expected) {
+        if (!groqKey) {
+          return [
+            {
+              q: `Bạn có thể giải thích thêm về "${mainQ.slice(0, 30)}..." không?`,
+            },
+            { q: "Tư tưởng này có ý nghĩa thực tiễn như thế nào?" },
+          ];
+        }
+        try {
+          const prompt = `Bạn là giảng viên TTHCM đang thi vấn đáp. Học viên vừa trả lời:
+
+Câu hỏi chính: ${mainQ}
+Câu trả lời: ${answer || "(Không trả lời)"}
+Đáp án chuẩn: ${expected}
+
+Hãy tạo ra 2-3 câu hỏi phụ để kiểm tra sâu hơn sự hiểu biết của học viên. Trả về JSON:
+{"questions": [{"q": "câu hỏi phụ 1"}, {"q": "câu hỏi phụ 2"}, {"q": "câu hỏi phụ 3"}]}
+
+Chỉ trả về JSON, không có markdown.`;
+          const res = await callGroq(prompt, 400);
+          if (!res)
+            return [
+              { q: "Bạn hiểu gì thêm về chủ đề này?" },
+              { q: "Ví dụ thực tiễn nào bạn có thể nêu?" },
+            ];
+          const clean = res.replace(/```json|```/g, "").trim();
+          const data = JSON.parse(clean);
+          return data.questions || [];
+        } catch {
+          return [
+            { q: "Bạn có thể nêu thêm ví dụ cụ thể?" },
+            { q: "Ý nghĩa của điều này với sinh viên quân sự?" },
+          ];
+        }
+      }
+
+      function renderFollowup(qIdx, fIdx) {
+        if (fIdx >= vdFollowups.length) {
+          finalizeVD(qIdx);
+          return;
+        }
+        const fq = vdFollowups[fIdx];
+        const area = document.getElementById(`followupArea${qIdx}`);
+        area.innerHTML = `
+    <div class="followup-panel show">
+      <div class="followup-q"><i class="fas fa-robot" style="color:#1565c0;margin-right:5px;"></i>Câu hỏi phụ ${fIdx + 1}/${vdFollowups.length}: ${fq.q}</div>
+      <textarea class="followup-input" id="fuAns${qIdx}_${fIdx}" rows="2" placeholder="Nhập câu trả lời..."></textarea>
+      <button class="btn btn-sm" style="margin-top:8px;background:#1565c0;color:white;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:'Be Vietnam Pro',sans-serif;font-weight:700;" onclick="submitFollowup(${qIdx},${fIdx})">
+        Trả lời <i class="fas fa-arrow-right"></i>
+      </button>
+    </div>`;
+      }
+
+      async function submitFollowup(qIdx, fIdx) {
+        const ans =
+          document.getElementById(`fuAns${qIdx}_${fIdx}`)?.value.trim() || "";
+        if (!vdFollowupAnswers[qIdx]) vdFollowupAnswers[qIdx] = [];
+        vdFollowupAnswers[qIdx].push({ q: vdFollowups[fIdx].q, a: ans });
+
+        const nextFIdx = fIdx + 1;
+        if (nextFIdx < vdFollowups.length) {
+          renderFollowup(qIdx, nextFIdx);
+        } else {
+          await finalizeVD(qIdx);
+        }
+      }
+
+      async function finalizeVD(qIdx) {
+        // Get AI score for this question
+        const q = vdQuestions[qIdx];
+        const mainAns = vdAnswers[qIdx] || "";
+        const followupAns = vdFollowupAnswers[qIdx] || [];
+
+        const feedback = await scoreVDAnswer(
+          q.question,
+          mainAns,
+          followupAns,
+          q.expected_answer || "",
+        );
+
+        const fbArea = document.getElementById(`feedbackArea${qIdx}`);
+        if (fbArea) {
+          const r = feedback.rubric || {};
+          const rubricHtml =
+            r.noi_dung !== undefined
+              ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:8px 0;font-size:0.72rem;">
+        <div>📚 Nội dung: <strong>${r.noi_dung || 0}/10</strong></div>
+        <div>🧠 Lập luận: <strong>${r.lap_luan || 0}/10</strong></div>
+        <div>📌 Ví dụ: <strong>${r.vi_du || 0}/10</strong></div>
+        <div>✍️ Diễn đạt: <strong>${r.dien_dat || 0}/10</strong></div>
+      </div>`
+              : "";
+          fbArea.innerHTML = `<div class="ai-feedback ${feedback.score >= 7 ? "good" : feedback.score >= 5 ? "ok" : "bad"}">
+      <strong>${feedback.score >= 7 ? "✅ Tốt!" : feedback.score >= 5 ? "👍 Đạt" : "💬 Cần bổ sung"} — Điểm tổng: ${parseFloat(feedback.score).toFixed(1)}/10</strong>
+      ${rubricHtml}
+      <div style="font-size:0.75rem;margin-top:4px;">${feedback.comment}</div>
+    </div>`;
+        }
+
+        document.getElementById(`followupArea${qIdx}`).innerHTML = "";
+
+        // Store score
+        if (!vdAnswers.scores) vdAnswers.scores = [];
+        vdAnswers.scores = vdAnswers.scores || [];
+        vdAnswers[`score_${qIdx}`] = feedback.score;
+
+        // Move to next question or finish
+        const nextIdx = qIdx + 1;
+        if (nextIdx < vdQuestions.length) {
+          setTimeout(() => renderVDQuestion(nextIdx), 1500);
+        } else {
+          setTimeout(() => finishVD(), 1500);
+        }
+      }
+
+      async function scoreVDAnswer(question, answer, followups, expected) {
+        if (!groqKey) {
+          const hasAnswer = answer && answer.length > 20;
+          return {
+            score: hasAnswer ? 6 : 3,
+            comment: hasAnswer
+              ? "Câu trả lời cơ bản. Cần bổ sung thêm chi tiết."
+              : "Câu trả lời quá ngắn hoặc chưa đầy đủ.",
+            rubric: {
+              noi_dung: hasAnswer ? 6 : 3,
+              lap_luan: hasAnswer ? 6 : 3,
+              vi_du: hasAnswer ? 4 : 2,
+              dien_dat: hasAnswer ? 6 : 3,
+            },
+          };
+        }
+        try {
+          const fuText = followups
+            .map((f, i) => `Câu phụ ${i + 1}: ${f.q}\nTrả lời: ${f.a}`)
+            .join("\n");
+          const prompt = `Chấm điểm bài vấn đáp TTHCM theo 4 tiêu chí (thang 10):\n\nCâu hỏi: ${question}\nĐáp án chuẩn: ${expected}\nCâu trả lời chính: ${answer || "(Không trả lời)"}\n${fuText}\n\n4 TIÊU CHÍ (mỗi tiêu chí /10):\n1. Nội dung (40%): Đúng và đủ ý chính?\n2. Lập luận (25%): Phân tích logic, rõ ràng?\n3. Ví dụ (20%): Dẫn chứng thực tiễn cụ thể?\n4. Diễn đạt (15%): Rõ ràng, đúng thuật ngữ?\n\nTrả về JSON (chỉ JSON):\n{"rubric":{"noi_dung":8,"lap_luan":7,"vi_du":5,"dien_dat":9},"score":7.2,"comment":"Nhận xét 2-3 câu tiếng Việt"}`;
+          const res = await callGroq(prompt, 300);
+          const data = JSON.parse(res.replace(/```json|```/g, "").trim());
+          const r = data.rubric || {};
+          const calc =
+            (r.noi_dung || 5) * 0.4 +
+            (r.lap_luan || 5) * 0.25 +
+            (r.vi_du || 5) * 0.2 +
+            (r.dien_dat || 5) * 0.15;
+          return {
+            score: Math.min(
+              10,
+              Math.max(0, data.score || parseFloat(calc.toFixed(1))),
+            ),
+            comment: data.comment || "Đã ghi nhận.",
+            rubric: r,
+          };
+        } catch {
+          return {
+            score: 5,
+            comment: "Câu trả lời đã được ghi nhận.",
+            rubric: {},
+          };
+        }
+      }
+
+      async function finishVD() {
+        clearInterval(tnTimer);
+        document.getElementById("timerBox").style.display = "none";
+        document.getElementById("vdScreen").style.display = "none";
+
+        const scores = vdQuestions.map((_, i) => vdAnswers[`score_${i}`] || 0);
+        const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+        const elapsed = Math.floor((Date.now() - tnStart) / 1000);
+
+        const detail = vdQuestions
+          .map(
+            (q, i) => `
+    <div class="score-item" style="flex-direction:column;align-items:flex-start;gap:6px;">
+      <div style="font-size:0.78rem;font-weight:600;">Câu ${i + 1}: ${q.question.slice(0, 60)}...</div>
+      <div style="width:100%;">
+        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--gray-500);margin-bottom:3px;">
+          <span>Điểm</span><span style="font-weight:700;color:${scores[i] >= 7 ? "#2e7d32" : scores[i] >= 5 ? "#e65100" : "var(--red)"};">${scores[i]}/10</span>
+        </div>
+        <div class="score-bar"><div class="score-fill" style="width:${scores[i] * 10}%;background:${scores[i] >= 7 ? "#2e7d32" : scores[i] >= 5 ? "#e65100" : "var(--red)"};"></div></div>
+      </div>
+    </div>`,
+          )
+          .join("");
+
+        showResult({
+          score: avgScore.toFixed(1),
+          correct: null,
+          total: null,
+          type: "Vấn đáp AI",
+          elapsed,
+          detail,
+        });
+        if (currentUser)
+          await saveExamResult(currentUser.id, {
+            score: avgScore,
+            correct: Math.round(avgScore * 2),
+            total: 20,
+            timeSpent: elapsed,
+          });
+      }
+
+      // ======================== RESULT ========================
+      function showResult({ score, correct, total, type, elapsed, detail }) {
+        document.getElementById("resultScreen").style.display = "block";
+        document.getElementById("resScore").textContent = score;
+        document.getElementById("resType").textContent = `${type} — /10 điểm`;
+        const m = Math.floor(elapsed / 60),
+          s = elapsed % 60;
+        let emoji = "😔",
+          msg = "Cần cố gắng thêm!";
+        if (score >= 9) {
+          emoji = "🏆";
+          msg = "Xuất sắc!";
+        } else if (score >= 7) {
+          emoji = "🎉";
+          msg = "Tốt lắm!";
+        } else if (score >= 5) {
+          emoji = "👍";
+          msg = "Đạt! Cần ôn thêm.";
+        }
+        document.getElementById("resEmoji").textContent = emoji;
+        document.getElementById("resMsg").textContent =
+          `${msg} · Thời gian: ${m}p ${s}s`;
+        document.getElementById("resSaved").textContent =
+          "✓ Kết quả đã được lưu vào tài khoản";
+        document.getElementById("resDetail").innerHTML = detail;
+        if (currentUser) logStudyTime(currentUser.id, Math.ceil(elapsed / 60));
+      }
+
+      // ======================== HISTORY ========================
+      async function loadHistory() {
+        const el = document.getElementById("historyList");
+        if (!currentUser) {
+          el.innerHTML = '<div class="empty">Cần đăng nhập</div>';
+          return;
+        }
+        const history = await getExamHistory(currentUser.id);
+        if (!history.length) {
+          el.innerHTML =
+            '<div class="empty"><i class="fas fa-clipboard-list"></i>Chưa có kết quả thi</div>';
+          return;
+        }
+        el.innerHTML = history
+          .map(
+            (h) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray-100);">
+      <div>
+        <div style="font-weight:600;font-size:0.875rem;">${formatDate(h.created_at)}</div>
+        <div style="font-size:0.7rem;color:var(--gray-500);">${h.correct || 0}/${h.total || 0} câu · ${formatTime(h.time_spent_seconds || 0)}</div>
+      </div>
+      <div style="font-family:'Oswald',sans-serif;font-size:1.3rem;font-weight:700;color:${parseFloat(h.score) >= 5 ? "#2e7d32" : "var(--red)"};">${parseFloat(h.score).toFixed(1)}</div>
+    </div>`,
+          )
+          .join("");
+      }
+
+      // ======================== GROQ ========================
+      async function callGroq(prompt, maxTokens = 500) {
+        if (!groqKey) return null;
+        try {
+          const res = await fetch(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${groqKey}`,
+              },
+              body: JSON.stringify({
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "user", content: prompt }],
+                max_tokens: maxTokens,
+                temperature: 0.5,
+              }),
+            },
+          );
+          const data = await res.json();
+          return data.choices?.[0]?.message?.content || null;
+        } catch {
+          return null;
+        }
+      }
+
+      // ======================== BUILT-IN POOLS ========================
+      const BUILTIN_POOL = [
+        {
+          q: "Tư tưởng HCM là kết quả vận dụng sáng tạo chủ nghĩa nào?",
+          opts: ["Mác - Lênin", "Khổng giáo", "Tam dân", "Phật giáo"],
+          ans: 0,
+          exp: "Tư tưởng HCM vận dụng sáng tạo chủ nghĩa Mác - Lênin.",
+        },
+        {
+          q: "HCM khẳng định: 'Không có gì quý hơn...'",
+          opts: ["vàng bạc", "độc lập tự do", "chủ nghĩa xã hội", "hòa bình"],
+          ans: 1,
+          exp: "Độc lập tự do là giá trị cao nhất.",
+        },
+        {
+          q: "Phẩm chất đạo đức quan trọng nhất của người cách mạng?",
+          opts: [
+            "Dũng cảm chiến đấu",
+            "Trung với nước, hiếu với dân",
+            "Siêng năng học tập",
+            "Khiêm tốn giản dị",
+          ],
+          ans: 1,
+          exp: '"Trung với nước, hiếu với dân" là phẩm chất hàng đầu.',
+        },
+        {
+          q: "Sợi chỉ đỏ xuyên suốt tư tưởng HCM là gì?",
+          opts: [
+            "Xây dựng quân đội",
+            "Độc lập dân tộc gắn CNXH",
+            "Đoàn kết quốc tế",
+            "Đấu tranh vũ trang",
+          ],
+          ans: 1,
+          exp: "Độc lập dân tộc gắn liền CNXH là tư tưởng xuyên suốt.",
+        },
+        {
+          q: "Bản chất Nhà nước VNDCCH theo HCM?",
+          opts: [
+            "Nhà nước tư sản",
+            "Nhà nước của dân, do dân, vì dân",
+            "Nhà nước công nhân",
+            "Dân chủ tư sản",
+          ],
+          ans: 1,
+          exp: "Nhà nước của dân, do dân và vì nhân dân.",
+        },
+        {
+          q: '"Cần" trong Cần-Kiệm-Liêm-Chính nghĩa là?',
+          opts: [
+            "Cần thận trọng",
+            "Cần cù, siêng năng lao động",
+            "Cần nhiều tiền",
+            "Cần giúp người",
+          ],
+          ans: 1,
+          exp: '"Cần" tức là cần cù, siêng năng, sáng tạo trong lao động.',
+        },
+        {
+          q: "Kẻ thù nguy hiểm nhất của người cách mạng?",
+          opts: ["Thực dân", "Chủ nghĩa cá nhân", "Thiếu học vấn", "Nghèo đói"],
+          ans: 1,
+          exp: "Chủ nghĩa cá nhân là kẻ thù hung ác nhất.",
+        },
+        {
+          q: "Nguyên tắc tổ chức Đảng theo HCM?",
+          opts: [
+            "Dân chủ đại diện",
+            "Tập trung dân chủ",
+            "Đa nguyên",
+            "Chuyên quyền",
+          ],
+          ans: 1,
+          exp: "Tập trung dân chủ là nguyên tắc tổ chức cơ bản.",
+        },
+        {
+          q: "HCM đọc Tuyên ngôn Độc lập ngày nào?",
+          opts: ["19/8/1945", "2/9/1945", "19/12/1946", "30/4/1975"],
+          ans: 1,
+          exp: "2/9/1945 tại Quảng trường Ba Đình, Hà Nội.",
+        },
+        {
+          q: "Đại đoàn kết dân tộc theo HCM là?",
+          opts: [
+            "Chiến thuật tạm thời",
+            "Chiến lược lâu dài",
+            "Biện pháp đối ngoại",
+            "Phương tiện ngoại giao",
+          ],
+          ans: 1,
+          exp: "Đại đoàn kết là chiến lược cách mạng lâu dài.",
+        },
+        {
+          q: "Cơ sở lý luận chủ yếu của Tư tưởng HCM?",
+          opts: [
+            "Triết học phương Đông",
+            "Chủ nghĩa Mác - Lênin",
+            "Khai sáng Pháp",
+            "Nho giáo",
+          ],
+          ans: 1,
+          exp: "Chủ nghĩa Mác - Lênin là cơ sở lý luận trực tiếp nhất.",
+        },
+        {
+          q: "Cán bộ nhà nước là gì của nhân dân theo HCM?",
+          opts: [
+            "Người lãnh đạo tuyệt đối",
+            "Công bộc (đầy tớ)",
+            "Đại diện Đảng",
+            "Người giám sát",
+          ],
+          ans: 1,
+          exp: 'Cán bộ là "công bộc", "đầy tớ trung thành" của nhân dân.',
+        },
+        {
+          q: '"Chí công vô tư" nghĩa là?',
+          opts: [
+            "Làm không lương",
+            "Đặt lợi ích công trên tư",
+            "Không gia đình",
+            "Sống độc thân",
+          ],
+          ans: 1,
+          exp: "Đặt lợi ích Đảng, nhân dân lên trên lợi ích cá nhân.",
+        },
+        {
+          q: "Chiến tranh nhân dân theo HCM?",
+          opts: [
+            "Quân đội chính quy",
+            "Toàn dân đánh giặc",
+            "Du kích thuần túy",
+            "Nước ngoài",
+          ],
+          ans: 1,
+          exp: "Chiến tranh nhân dân: toàn dân, toàn diện, trường kỳ.",
+        },
+        {
+          q: "Rèn luyện đạo đức cách mạng là quá trình?",
+          opts: [
+            "Ngắn hạn",
+            "Thường xuyên suốt đời",
+            "Chỉ khi trẻ",
+            "Khi bị phê bình",
+          ],
+          ans: 1,
+          exp: "Rèn luyện đạo đức là công việc suốt cả cuộc đời.",
+        },
+        {
+          q: "HCM tham gia sáng lập ĐCS Pháp năm nào?",
+          opts: ["1919", "1920", "1922", "1925"],
+          ans: 1,
+          exp: "Năm 1920 tại Đại hội Tours, Pháp.",
+        },
+        {
+          q: "Lực lượng chủ yếu cách mạng VN theo HCM?",
+          opts: ["Tư sản", "Công - Nông liên minh", "Tiểu tư sản", "Quân đội"],
+          ans: 1,
+          exp: "Liên minh công nhân - nông dân là nền tảng cách mạng.",
+        },
+        {
+          q: "Giá trị truyền thống được HCM kế thừa?",
+          opts: [
+            "Cá nhân chủ nghĩa",
+            "Dân tộc cực đoan",
+            "Chủ nghĩa yêu nước",
+            "Phong kiến",
+          ],
+          ans: 2,
+          exp: "Chủ nghĩa yêu nước là cơ sở hình thành tư tưởng HCM.",
+        },
+        {
+          q: "Mục tiêu CNXH ở VN theo HCM?",
+          opts: [
+            "Công nghiệp hóa",
+            "Ấm no và hạnh phúc cho nhân dân",
+            "Xuất khẩu",
+            "Đô thị hóa",
+          ],
+          ans: 1,
+          exp: "CNXH nhằm đảm bảo ấm no, tự do, hạnh phúc cho nhân dân.",
+        },
+        {
+          q: "HCM tiếp thu văn hóa nhân loại theo nguyên tắc nào?",
+          opts: [
+            "Bắt chước nguyên xi",
+            "Phê phán toàn bộ",
+            "Chọn lọc có phê phán",
+            "Từ chối hoàn toàn",
+          ],
+          ans: 2,
+          exp: "Tiếp thu có chọn lọc, phê phán — biểu hiện sự sáng tạo.",
+        },
+        {
+          q: "Quân đội nhân dân VN phục vụ mục đích gì?",
+          opts: [
+            "Bảo vệ chính quyền",
+            "Bảo vệ Tổ quốc và nhân dân",
+            "Phục vụ Đảng",
+            "Giúp Liên Xô",
+          ],
+          ans: 1,
+          exp: "Quân đội từ nhân dân mà ra, chiến đấu vì nhân dân.",
+        },
+        {
+          q: "Xây dựng lực lượng vũ trang theo HCM nhấn mạnh?",
+          opts: [
+            "Chuyên môn kỹ thuật",
+            "Chính trị là linh hồn",
+            "Số lượng đông",
+            "Vũ khí hiện đại",
+          ],
+          ans: 1,
+          exp: "Xây dựng chính trị - tư tưởng là nền tảng, linh hồn.",
+        },
+        {
+          q: "Tinh thần quốc tế trong sáng theo HCM bao gồm?",
+          opts: [
+            "Chỉ yêu Liên Xô",
+            "Đoàn kết với nhân dân lao động toàn thế giới",
+            "Phê phán nước khác",
+            "Không quan tâm ngoại giao",
+          ],
+          ans: 1,
+          exp: "Đoàn kết với giai cấp công nhân và nhân dân lao động toàn thế giới.",
+        },
+        {
+          q: "Phẩm chất nổi bật của HCM hình thành tư tưởng?",
+          opts: [
+            "Tư duy học thuật",
+            "Tư duy độc lập, tự chủ, sáng tạo",
+            "Tư duy kinh viện",
+            "Tư duy giáo điều",
+          ],
+          ans: 1,
+          exp: "Tư duy độc lập, tự chủ, sáng tạo là phẩm chất cốt lõi.",
+        },
+        {
+          q: 'Theo HCM, "Kiệm" trong đạo đức cách mạng nghĩa là?',
+          opts: [
+            "Keo kiệt",
+            "Tiết kiệm, không xa xỉ lãng phí",
+            "Không chi tiêu",
+            "Sống nghèo khổ",
+          ],
+          ans: 1,
+          exp: '"Kiệm" tức là tiết kiệm sức lao động, thì giờ, của cải.',
+        },
+        {
+          q: "HCM nhấn mạnh văn hóa có vai trò gì?",
+          opts: [
+            "Giải trí đơn thuần",
+            "Nền tảng tinh thần của xã hội",
+            "Phụ trợ cho kinh tế",
+            "Không quan trọng",
+          ],
+          ans: 1,
+          exp: "Văn hóa là nền tảng tinh thần, soi đường cho quốc dân đi.",
+        },
+        {
+          q: "Theo HCM, giáo dục nhằm mục đích gì?",
+          opts: [
+            "Đào tạo quan chức",
+            "Trồng người phục vụ Tổ quốc",
+            "Thi lấy bằng",
+            "Học thuộc lý luận",
+          ],
+          ans: 1,
+          exp: '"Vì lợi ích trăm năm trồng người" — mục tiêu giáo dục HCM.',
+        },
+        {
+          q: "HCM coi Đảng Cộng sản có vai trò gì?",
+          opts: [
+            "Tổ chức thứ yếu",
+            "Đội tiên phong của giai cấp công nhân",
+            "Tổ chức đối lập",
+            "Hội từ thiện",
+          ],
+          ans: 1,
+          exp: "Đảng là đội tiên phong, lãnh đạo cách mạng VN.",
+        },
+        {
+          q: "Hiến pháp 1946 quy định quyền bầu cử thế nào?",
+          opts: [
+            "Chỉ nam giới",
+            "Từ 21 tuổi",
+            "Công dân từ 18 tuổi, không phân biệt giới tính",
+            "Chỉ có học vấn",
+          ],
+          ans: 2,
+          exp: "Hiến pháp 1946: công dân từ 18 tuổi đều có quyền bầu cử.",
+        },
+        {
+          q: "HCM gửi thư học sinh khai trường đầu tiên VNDCCH năm nào?",
+          opts: ["1945", "1946", "1947", "1948"],
+          ans: 0,
+          exp: "5/9/1945, Bác gửi thư khai trường đầu tiên của nước VNDCCH.",
+        },
+        {
+          q: "Phong cách làm việc của HCM có đặc điểm gì?",
+          opts: [
+            "Xa rời quần chúng",
+            "Khoa học, dân chủ, sâu sát quần chúng",
+            "Độc đoán, chuyên quyền",
+            "Làm việc một mình",
+          ],
+          ans: 1,
+          exp: "Phong cách làm việc HCM: khoa học, dân chủ, sâu sát quần chúng.",
+        },
+        {
+          q: "Theo HCM, nguồn gốc tư tưởng cách mạng VN là?",
+          opts: [
+            "Tư tưởng phương Tây",
+            "Chủ nghĩa yêu nước kết hợp Mác-Lênin",
+            "Tư tưởng Trung Hoa",
+            "Triết học Pháp",
+          ],
+          ans: 1,
+          exp: "Chủ nghĩa yêu nước truyền thống kết hợp với Mác-Lênin.",
+        },
+        {
+          q: "HCM cho rằng thắng lợi cách mạng phụ thuộc vào?",
+          opts: [
+            "Vũ khí",
+            "Đảng có đường lối đúng đắn, được nhân dân ủng hộ",
+            "Viện trợ nước ngoài",
+            "Số lượng quân sự",
+          ],
+          ans: 1,
+          exp: "Đảng có đường lối đúng + được nhân dân ủng hộ = thắng lợi.",
+        },
+        {
+          q: "Tư tưởng HCM về đoàn kết quốc tế?",
+          opts: [
+            "Chỉ đoàn kết với các nước XHCN",
+            "Đoàn kết rộng rãi với mọi lực lượng tiến bộ",
+            "Không cần đoàn kết",
+            "Chỉ đoàn kết với châu Á",
+          ],
+          ans: 1,
+          exp: "Đoàn kết rộng rãi với mọi lực lượng yêu chuộng hòa bình, tiến bộ.",
+        },
+        {
+          q: "Theo HCM, điều kiện để CM VN thắng lợi?",
+          opts: [
+            "Vũ khí mạnh",
+            "Có Đảng Cộng sản lãnh đạo",
+            "Viện trợ quốc tế",
+            "Địa lợi",
+          ],
+          ans: 1,
+          exp: "Cách mạng muốn thành công phải có Đảng Cộng sản lãnh đạo.",
+        },
+        {
+          q: "HCM nhận định về vai trò phụ nữ thế nào?",
+          opts: [
+            "Phụ nữ không tham gia cách mạng",
+            "Phụ nữ là lực lượng cách mạng quan trọng",
+            "Phụ nữ chỉ lo gia đình",
+            "Phụ nữ không có quyền bầu cử",
+          ],
+          ans: 1,
+          exp: 'HCM đánh giá cao vai trò phụ nữ: "Giải phóng phụ nữ là tiến bộ xã hội".',
+        },
+        {
+          q: 'Chuẩn mực đạo đức "Liêm" theo HCM là?',
+          opts: [
+            "Không ăn nhiều",
+            "Trong sạch, không tham ô, không lãng phí",
+            "Sống nghèo khổ",
+            "Không quan hệ bạn bè",
+          ],
+          ans: 1,
+          exp: '"Liêm" là trong sạch, không tham ô, không chiếm tài sản công.',
+        },
+        {
+          q: 'HCM đề cao phẩm chất "Chính" nghĩa là?',
+          opts: [
+            "Đúng giờ",
+            "Thẳng thắn, trung thực, chính trực",
+            "Chính quy hóa",
+            "Chính thống",
+          ],
+          ans: 1,
+          exp: '"Chính" là chính trực, thẳng thắn, không dối trá, không làm việc xấu.',
+        },
+        {
+          q: "HCM xác định mối quan hệ Đảng - Nhân dân là?",
+          opts: [
+            "Đảng lãnh đạo tuyệt đối, nhân dân phục tùng",
+            "Cá với nước — Đảng gắn bó mật thiết với nhân dân",
+            "Đảng và nhân dân tách biệt",
+            "Nhân dân lãnh đạo Đảng",
+          ],
+          ans: 1,
+          exp: "Mối quan hệ cá với nước: Đảng phải gắn bó mật thiết với nhân dân.",
+        },
+        {
+          q: 'Theo HCM, "người cách mạng phải có đức" bởi vì?',
+          opts: [
+            "Để được khen ngợi",
+            "Đức là nền tảng, tài không có đức là vô dụng",
+            "Vì truyền thống",
+            "Vì ép buộc",
+          ],
+          ans: 1,
+          exp: "Có tài mà không có đức thì vô dụng; có đức mà không có tài thì khó hoàn thành nhiệm vụ.",
+        },
+        {
+          q: "HCM kết hợp truyền thống dân tộc với học thuyết nào để giải phóng đất nước?",
+          opts: [
+            "Dân chủ tư sản",
+            "Chủ nghĩa Mác - Lênin",
+            "Chủ nghĩa dân tộc Châu Á",
+            "Tư tưởng Tam dân",
+          ],
+          ans: 1,
+          exp: "HCM kết hợp chủ nghĩa yêu nước truyền thống với Mác - Lênin.",
+        },
+      ];
+
+      const BUILTIN_ORAL = [
+        {
+          question:
+            "Trình bày khái niệm và nguồn gốc hình thành Tư tưởng Hồ Chí Minh?",
+          expected:
+            "Tư tưởng HCM là hệ thống quan điểm toàn diện về cách mạng VN, hình thành từ chủ nghĩa Mác-Lênin, truyền thống dân tộc và tinh hoa văn hóa nhân loại.",
+        },
+        {
+          question:
+            "Phân tích tư tưởng Hồ Chí Minh về đạo đức cách mạng. Ý nghĩa của đạo đức đối với người cán bộ, đảng viên ngày nay?",
+          expected:
+            "Đạo đức HCM gồm: Trung với nước hiếu với dân, Cần-Kiệm-Liêm-Chính, Yêu thương con người, Tinh thần quốc tế. Đây là nền tảng phẩm chất người cách mạng.",
+        },
+        {
+          question:
+            "Trình bày tư tưởng Hồ Chí Minh về độc lập dân tộc gắn liền với chủ nghĩa xã hội?",
+          expected:
+            "Độc lập dân tộc gắn CNXH là sợi chỉ đỏ xuyên suốt. Độc lập là tiền đề, CNXH là mục tiêu cuối cùng. Hai mục tiêu này không thể tách rời.",
+        },
+        {
+          question:
+            "Phân tích quan điểm của Hồ Chí Minh về xây dựng Nhà nước của nhân dân, do nhân dân, vì nhân dân?",
+          expected:
+            "Nhà nước phải là của dân (quyền lực thuộc nhân dân), do dân (nhân dân tham gia quản lý), vì dân (phục vụ lợi ích nhân dân). Cán bộ là công bộc của dân.",
+        },
+      ];
+
+      document.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

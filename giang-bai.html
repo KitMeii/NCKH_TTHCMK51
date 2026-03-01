@@ -1,0 +1,1732 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Giảng bài - TTHCM</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <style>
+      /* ===================== LAYOUT ===================== */
+      body {
+        background: #f8f7f5;
+        padding-top: 70px;
+        padding-bottom: 72px;
+      }
+
+      .lecture-wrap {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+
+      /* ===================== UPLOAD ===================== */
+      .upload-zone {
+        border: 2.5px dashed #ddd;
+        border-radius: 20px;
+        padding: 48px 24px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.25s;
+        background: white;
+        position: relative;
+      }
+      .upload-zone:hover,
+      .upload-zone.drag {
+        border-color: var(--red);
+        background: var(--red-bg);
+      }
+      .upload-zone input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      .upload-icon {
+        width: 72px;
+        height: 72px;
+        background: var(--red-bg);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 1.8rem;
+        color: var(--red);
+      }
+      .upload-title {
+        font-family: "Oswald", sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        margin-bottom: 6px;
+      }
+      .upload-sub {
+        font-size: 0.8rem;
+        color: var(--gray-500);
+      }
+
+      /* Groq key setup */
+      .setup-card {
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        border-radius: 16px;
+        padding: 20px;
+        color: white;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+      .setup-icon {
+        font-size: 1.8rem;
+        flex-shrink: 0;
+      }
+      .groq-input {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        padding: 9px 14px;
+        color: white;
+        font-size: 0.82rem;
+        flex: 1;
+      }
+      .groq-input::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+      }
+      .groq-input:focus {
+        outline: none;
+        border-color: #f9a825;
+      }
+
+      /* ===================== PLAYER ===================== */
+      .player-wrap {
+        display: none;
+      }
+      .player-wrap.active {
+        display: block;
+      }
+
+      /* PDF Slide toggle */
+      .slide-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: white;
+        border-radius: 10px;
+        padding: 8px 14px;
+        margin-bottom: 8px;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+      }
+      .slide-toggle label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--gray-700);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        cursor: pointer;
+      }
+      .slide-wrap {
+        display: none;
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.07);
+        margin-bottom: 10px;
+        position: relative;
+      }
+      .slide-wrap.show {
+        display: block;
+      }
+      .slide-canvas-wrap {
+        overflow: auto;
+        max-height: 380px;
+        background: #f5f5f5;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 8px;
+      }
+      #pdfCanvas {
+        border-radius: 6px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        max-width: 100%;
+        display: block;
+      }
+      .slide-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 14px;
+        border-top: 1px solid var(--gray-100);
+        background: white;
+      }
+      .slide-nav-btn {
+        background: var(--red-bg);
+        border: none;
+        color: var(--red);
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .slide-nav-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+      .slide-page-info {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--gray-500);
+      }
+
+      .chapter-header {
+        background: linear-gradient(135deg, #b71c1c, #c62828);
+        border-radius: 16px 16px 0 0;
+        padding: 18px 20px;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .ch-badge {
+        width: 44px;
+        height: 44px;
+        background: rgba(255, 255, 255, 0.15);
+        border: 2px solid #f9a825;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Oswald", sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        flex-shrink: 0;
+      }
+      .ch-title {
+        font-family: "Oswald", sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+      }
+      .ch-sub {
+        font-size: 0.72rem;
+        opacity: 0.8;
+        margin-top: 2px;
+      }
+      .ch-progress-bar {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 0;
+        overflow: hidden;
+      }
+      .ch-progress-fill {
+        height: 100%;
+        background: #f9a825;
+        border-radius: 0;
+        transition: width 0.5s;
+      }
+
+      /* Lecture body */
+      .lecture-body {
+        background: white;
+        border-radius: 0 0 16px 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        margin-bottom: 14px;
+      }
+
+      /* Transcript area */
+      .transcript-area {
+        padding: 20px;
+        min-height: 180px;
+        max-height: 280px;
+        overflow-y: auto;
+        font-size: 0.88rem;
+        line-height: 1.8;
+        color: var(--gray-700);
+        border-bottom: 1px solid var(--gray-100);
+        position: relative;
+      }
+      .transcript-area .highlight {
+        background: #fff9c4;
+        border-radius: 3px;
+        padding: 1px 2px;
+      }
+      .speaking-word {
+        background: #ffeb3b;
+        border-radius: 3px;
+        padding: 0 2px;
+      }
+
+      /* Controls */
+      .controls {
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #fafafa;
+      }
+      .ctrl-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.9rem;
+        transition: all 0.15s;
+      }
+      .ctrl-play {
+        background: var(--red);
+        color: white;
+        width: 48px;
+        height: 48px;
+        font-size: 1rem;
+      }
+      .ctrl-play:hover {
+        background: var(--red-dark);
+        transform: scale(1.05);
+      }
+      .ctrl-btn:not(.ctrl-play) {
+        background: var(--gray-100);
+        color: var(--gray-700);
+      }
+      .ctrl-btn:not(.ctrl-play):hover {
+        background: var(--gray-200);
+      }
+      .speed-btn {
+        padding: 5px 10px;
+        border-radius: 6px;
+        border: 1.5px solid var(--gray-300);
+        background: white;
+        font-size: 0.75rem;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: "Be Vietnam Pro", sans-serif;
+        color: var(--gray-600);
+      }
+      .speed-btn.active {
+        border-color: var(--red);
+        color: var(--red);
+        background: var(--red-bg);
+      }
+      .ctrl-time {
+        font-size: 0.72rem;
+        color: var(--gray-500);
+        margin-left: auto;
+        font-family: "Oswald", sans-serif;
+        letter-spacing: 0.5px;
+      }
+
+      /* Progress segment */
+      .segment-progress {
+        padding: 10px 20px 14px;
+        background: #fafafa;
+        border-top: 1px solid var(--gray-100);
+      }
+      .seg-label {
+        font-size: 0.68rem;
+        color: var(--gray-500);
+        margin-bottom: 5px;
+      }
+      .seg-dots {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+      }
+      .seg-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--gray-200);
+        transition: all 0.3s;
+      }
+      .seg-dot.done {
+        background: var(--red);
+      }
+      .seg-dot.current {
+        background: #f9a825;
+        transform: scale(1.4);
+      }
+      .seg-dot.question {
+        background: #1565c0;
+      }
+
+      /* ===================== Q&A OVERLAY ===================== */
+      .qa-panel {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        display: none;
+        margin-bottom: 14px;
+        border: 2px solid #1565c0;
+      }
+      .qa-panel.show {
+        display: block;
+        animation: slideUp 0.3s ease;
+      }
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .qa-header {
+        background: linear-gradient(135deg, #0d47a1, #1565c0);
+        padding: 14px 18px;
+        color: white;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 0.85rem;
+        font-weight: 700;
+      }
+      .qa-icon {
+        width: 32px;
+        height: 32px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .qa-body {
+        padding: 18px;
+      }
+      .qa-question {
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: var(--gray-800);
+        margin-bottom: 14px;
+        line-height: 1.5;
+      }
+      .qa-hint {
+        font-size: 0.72rem;
+        color: var(--gray-500);
+        margin-bottom: 10px;
+      }
+      .qa-textarea {
+        width: 100%;
+        border: 1.5px solid var(--gray-300);
+        border-radius: 10px;
+        padding: 12px 14px;
+        font-size: 0.85rem;
+        font-family: "Be Vietnam Pro", sans-serif;
+        resize: none;
+        outline: none;
+        transition: border 0.2s;
+        min-height: 80px;
+        box-sizing: border-box;
+      }
+      .qa-textarea:focus {
+        border-color: #1565c0;
+      }
+      .qa-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .qa-submit {
+        flex: 1;
+      }
+
+      /* AI feedback */
+      .ai-feedback {
+        margin-top: 14px;
+        padding: 14px;
+        border-radius: 10px;
+        font-size: 0.83rem;
+        line-height: 1.6;
+        display: none;
+      }
+      .ai-feedback.good {
+        background: #e8f5e9;
+        border-left: 3px solid #2e7d32;
+        color: #1b5e20;
+      }
+      .ai-feedback.bad {
+        background: #fff3e0;
+        border-left: 3px solid #e65100;
+        color: #bf360c;
+      }
+      .ai-feedback.show {
+        display: block;
+        animation: slideUp 0.2s ease;
+      }
+
+      /* ===================== CHAPTER LIST ===================== */
+      .chapter-list {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+        overflow: hidden;
+        margin-bottom: 14px;
+      }
+      .chapter-list-header {
+        padding: 14px 18px;
+        font-family: "Oswald", sans-serif;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--gray-700);
+        border-bottom: 1px solid var(--gray-100);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .chapter-item {
+        padding: 12px 18px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-bottom: 1px solid var(--gray-100);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .chapter-item:hover {
+        background: var(--gray-50);
+      }
+      .chapter-item.active {
+        background: var(--red-bg);
+      }
+      .chapter-item.locked {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .ch-item-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: var(--gray-100);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "Oswald", sans-serif;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: var(--gray-600);
+        flex-shrink: 0;
+      }
+      .chapter-item.active .ch-item-num {
+        background: var(--red);
+        color: white;
+      }
+      .chapter-item.done .ch-item-num {
+        background: #2e7d32;
+        color: white;
+      }
+      .ch-item-title {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--gray-700);
+        flex: 1;
+      }
+      .ch-item-status {
+        font-size: 0.7rem;
+        color: var(--gray-400);
+      }
+
+      /* Loading */
+      .ai-loading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.8rem;
+        color: var(--gray-500);
+        padding: 8px 0;
+      }
+      .ai-loading i {
+        animation: spin 1s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Status badge */
+      .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+      .status-badge.reading {
+        background: #e3f2fd;
+        color: #1565c0;
+      }
+      .status-badge.speaking {
+        background: #e8f5e9;
+        color: #2e7d32;
+      }
+      .status-badge.question {
+        background: #fff3e0;
+        color: #e65100;
+      }
+      .status-badge.paused {
+        background: var(--gray-100);
+        color: var(--gray-600);
+      }
+      .pulse {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        animation: pulse 1s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      /* Voice select */
+      .voice-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: #fafafa;
+        border-top: 1px solid var(--gray-100);
+      }
+      .voice-select {
+        flex: 1;
+        border: 1.5px solid var(--gray-300);
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 0.78rem;
+        font-family: "Be Vietnam Pro", sans-serif;
+        background: white;
+      }
+
+      /* Empty state */
+      .lecture-empty {
+        text-align: center;
+        padding: 40px 20px;
+      }
+      .lecture-empty i {
+        font-size: 3rem;
+        color: var(--gray-300);
+        margin-bottom: 12px;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-inner">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-badge"><i class="fas fa-star"></i>MTA</div>
+          <div class="logo-info">
+            <div class="logo-title">AI Giảng bài</div>
+            <div class="logo-sub">Học tập tương tác với Giảng viên Ảo</div>
+          </div>
+        </a>
+        <div class="header-actions">
+          <span class="status-badge paused" id="statusBadge">
+            <span class="pulse"></span> Chờ tải lên
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="lecture-wrap">
+        <!-- Groq API Key Setup -->
+        <div class="setup-card" id="groqSetup">
+          <div class="setup-icon">🔑</div>
+          <div style="flex: 1">
+            <div
+              style="font-weight: 700; font-size: 0.85rem; margin-bottom: 6px"
+            >
+              Nhập Groq API Key (miễn phí)
+            </div>
+            <div style="font-size: 0.72rem; opacity: 0.7; margin-bottom: 8px">
+              Lấy key tại
+              <a
+                href="https://console.groq.com"
+                target="_blank"
+                style="color: #f9a825"
+                >console.groq.com</a
+              >
+              → API Keys → Create
+            </div>
+            <div style="display: flex; gap: 8px">
+              <input
+                class="groq-input"
+                id="groqKey"
+                type="password"
+                placeholder="gsk_xxxxxxxxxxxxxxxxxxxx"
+              />
+              <button
+                class="btn btn-sm"
+                style="
+                  background: #f9a825;
+                  color: #000;
+                  font-weight: 700;
+                  white-space: nowrap;
+                "
+                onclick="saveGroqKey()"
+              >
+                Lưu key
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload Zone -->
+        <div id="uploadSection">
+          <div class="upload-zone" id="uploadZone">
+            <input
+              type="file"
+              accept=".pdf"
+              id="fileInput"
+              onchange="handleFile(event)"
+            />
+            <div class="upload-icon"><i class="fas fa-file-pdf"></i></div>
+            <div class="upload-title">Tải lên file PDF bài giảng</div>
+            <div class="upload-sub">
+              Kéo thả hoặc nhấn để chọn file · Hỗ trợ PDF nhiều chương
+            </div>
+            <div
+              style="
+                margin-top: 16px;
+                display: flex;
+                justify-content: center;
+                gap: 8px;
+              "
+            >
+              <span
+                style="
+                  background: var(--red-bg);
+                  color: var(--red);
+                  padding: 4px 12px;
+                  border-radius: 20px;
+                  font-size: 0.72rem;
+                  font-weight: 600;
+                "
+                >PDF</span
+              >
+              <span
+                style="
+                  background: #e8f5e9;
+                  color: #2e7d32;
+                  padding: 4px 12px;
+                  border-radius: 20px;
+                  font-size: 0.72rem;
+                  font-weight: 600;
+                "
+                >AI phân tích tự động</span
+              >
+              <span
+                style="
+                  background: #e3f2fd;
+                  color: #1565c0;
+                  padding: 4px 12px;
+                  border-radius: 20px;
+                  font-size: 0.72rem;
+                  font-weight: 600;
+                "
+                >Giọng nói TTS</span
+              >
+            </div>
+          </div>
+
+          <div
+            style="margin-top: 10px"
+            id="processingInfo"
+            style="display: none"
+          >
+            <div class="card" style="text-align: center; padding: 20px">
+              <div class="ai-loading" style="justify-content: center">
+                <i
+                  class="fas fa-spinner fa-spin"
+                  style="color: var(--red); font-size: 1.2rem"
+                ></i>
+                <span id="processingMsg">Đang đọc PDF...</span>
+              </div>
+              <div style="margin-top: 10px" id="processingProg"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Player -->
+        <div class="player-wrap" id="playerWrap">
+          <!-- Chapter List -->
+          <div class="chapter-list" id="chapterList">
+            <div class="chapter-list-header">
+              <i class="fas fa-list" style="color: var(--red)"></i> Danh sách
+              chương
+            </div>
+            <div id="chapterItems"></div>
+          </div>
+
+          <!-- PDF Slide View -->
+          <div class="slide-toggle">
+            <label for="slideToggle"
+              ><i class="fas fa-file-pdf" style="color: var(--red)"></i> Hiển
+              thị slide PDF song song</label
+            >
+            <label class="toggle-switch">
+              <input
+                type="checkbox"
+                id="slideToggle"
+                onchange="toggleSlide(this.checked)"
+              />
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="slide-wrap" id="slideWrap">
+            <div class="slide-canvas-wrap">
+              <canvas id="pdfCanvas"></canvas>
+            </div>
+            <div class="slide-nav">
+              <button
+                class="slide-nav-btn"
+                id="slidePrev"
+                onclick="changeSlidePage(-1)"
+              >
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <span class="slide-page-info"
+                >Trang <span id="slidePageNum">1</span> /
+                <span id="slideTotalPages">—</span></span
+              >
+              <button
+                class="slide-nav-btn"
+                id="slideNext"
+                onclick="changeSlidePage(1)"
+              >
+                <i class="fas fa-chevron-right"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Lecture Player -->
+          <div class="lecture-body">
+            <div class="chapter-header">
+              <div class="ch-badge" id="chBadge">1</div>
+              <div style="flex: 1">
+                <div class="ch-title" id="chTitle">Đang tải...</div>
+                <div class="ch-sub" id="chSub">Phần 0 / 0</div>
+              </div>
+              <button
+                onclick="uploadNew()"
+                style="
+                  background: rgba(255, 255, 255, 0.15);
+                  border: none;
+                  color: white;
+                  padding: 6px 12px;
+                  border-radius: 8px;
+                  font-size: 0.72rem;
+                  cursor: pointer;
+                  font-family: &quot;Be Vietnam Pro&quot;, sans-serif;
+                "
+              >
+                <i class="fas fa-upload"></i> Tải file mới
+              </button>
+            </div>
+            <div class="ch-progress-bar">
+              <div
+                class="ch-progress-fill"
+                id="chProgFill"
+                style="width: 0%"
+              ></div>
+            </div>
+
+            <!-- Transcript -->
+            <div class="transcript-area" id="transcriptArea">
+              <div class="lecture-empty">
+                <i class="fas fa-volume-up"></i>
+                <div style="font-size: 0.85rem; color: var(--gray-500)">
+                  Nhấn <strong>Phát</strong> để bắt đầu giảng bài
+                </div>
+              </div>
+            </div>
+
+            <!-- Voice select -->
+            <div class="voice-row">
+              <i
+                class="fas fa-volume-up"
+                style="color: var(--gray-500); font-size: 0.85rem"
+              ></i>
+              <select class="voice-select" id="voiceSelect"></select>
+              <span style="font-size: 0.7rem; color: var(--gray-500)"
+                >Tốc độ:</span
+              >
+              <button class="speed-btn" onclick="setSpeed(0.8)">0.8×</button>
+              <button class="speed-btn active" id="spd1" onclick="setSpeed(1)">
+                1×
+              </button>
+              <button class="speed-btn" onclick="setSpeed(1.3)">1.3×</button>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+              <button
+                class="ctrl-btn"
+                onclick="prevSegment()"
+                title="Đoạn trước"
+              >
+                <i class="fas fa-step-backward"></i>
+              </button>
+              <button
+                class="ctrl-btn ctrl-play"
+                id="playBtn"
+                onclick="togglePlay()"
+              >
+                <i class="fas fa-play" id="playIcon"></i>
+              </button>
+              <button
+                class="ctrl-btn"
+                onclick="nextSegment()"
+                title="Đoạn tiếp"
+              >
+                <i class="fas fa-step-forward"></i>
+              </button>
+              <button
+                class="ctrl-btn"
+                onclick="replaySegment()"
+                title="Đọc lại đoạn này"
+              >
+                <i class="fas fa-redo"></i>
+              </button>
+              <span class="ctrl-time" id="ctrlTime">0 / 0 phần</span>
+            </div>
+
+            <!-- Segment dots -->
+            <div class="segment-progress">
+              <div class="seg-label">Tiến trình bài giảng</div>
+              <div class="seg-dots" id="segDots"></div>
+            </div>
+          </div>
+
+          <!-- Q&A Panel -->
+          <div class="qa-panel" id="qaPanel">
+            <div class="qa-header">
+              <div class="qa-icon"><i class="fas fa-robot"></i></div>
+              <div>
+                <div>Giảng viên Ảo hỏi</div>
+                <div
+                  style="font-size: 0.68rem; opacity: 0.8; font-weight: 400"
+                  id="qaCounter"
+                >
+                  Câu hỏi 1/2
+                </div>
+              </div>
+              <div
+                style="margin-left: auto; font-size: 0.7rem; opacity: 0.7"
+                id="qaTimer"
+              ></div>
+            </div>
+            <div class="qa-body">
+              <div class="qa-question" id="qaQuestion">—</div>
+              <div class="qa-hint">
+                💡 Hãy trả lời bằng ngôn ngữ của bạn, không cần chính xác từng
+                từ
+              </div>
+              <textarea
+                class="qa-textarea"
+                id="qaAnswer"
+                placeholder="Nhập câu trả lời của bạn..."
+                rows="3"
+              ></textarea>
+              <div class="ai-feedback" id="aiFeedback"></div>
+              <div class="qa-actions">
+                <button
+                  class="btn btn-red qa-submit"
+                  id="qaSubmitBtn"
+                  onclick="submitAnswer()"
+                >
+                  <i class="fas fa-paper-plane"></i> Gửi câu trả lời
+                </button>
+                <button class="btn btn-outline" onclick="skipQuestion()">
+                  Bỏ qua
+                </button>
+              </div>
+              <div class="ai-loading" id="qaLoading" style="display: none">
+                <i class="fas fa-spinner"></i> Giảng viên Ảo đang đánh giá...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <nav class="bottom-nav">
+      <a href="index.html" class="nav-item"
+        ><i class="fas fa-home"></i><span>Trang chủ</span></a
+      >
+      <a href="chat.html" class="nav-item"
+        ><i class="fas fa-comment-dots"></i><span>Chat AI</span></a
+      >
+      <a href="luyen-tap.html" class="nav-item"
+        ><i class="fas fa-book"></i><span>Luyện tập</span></a
+      >
+      <a href="thi-thu.html" class="nav-item"
+        ><i class="fas fa-pencil-alt"></i><span>Thi thử</span></a
+      >
+      <a href="tien-do.html" class="nav-item"
+        ><i class="fas fa-calendar-alt"></i><span>Tiến độ</span></a
+      >
+      <a href="xep-hang.html" class="nav-item"
+        ><i class="fas fa-trophy"></i><span>Bảng XH</span></a
+      >
+      <a href="giang-bai.html" class="nav-item active"
+        ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
+      >
+      <a href="cai-dat.html" class="nav-item"
+        ><i class="fas fa-cog"></i><span>Cài đặt</span></a
+      >
+    </nav>
+
+    <script>
+      if (localStorage.getItem("darkMode") === "1")
+        document.body.classList.add("dark");
+
+      // PDF.js worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+      // ===================== STATE =====================
+      let groqApiKey = localStorage.getItem("groqKey") || "";
+      let currentUser = null;
+      let chapters = []; // [{title, content, segments:[], questions:[]}]
+
+      // PDF Slide state
+      let pdfDocObj = null; // giữ PDF document object để render slide
+      let currentSlidePage = 1;
+      let slideVisible = false;
+
+      async function toggleSlide(show) {
+        slideVisible = show;
+        document.getElementById("slideWrap").classList.toggle("show", show);
+        if (show && pdfDocObj) renderSlidePage(currentSlidePage);
+      }
+
+      async function renderSlidePage(pageNum) {
+        if (!pdfDocObj) return;
+        pageNum = Math.max(1, Math.min(pageNum, pdfDocObj.numPages));
+        currentSlidePage = pageNum;
+        document.getElementById("slidePageNum").textContent = pageNum;
+        document.getElementById("slideTotalPages").textContent =
+          pdfDocObj.numPages;
+        document.getElementById("slidePrev").disabled = pageNum <= 1;
+        document.getElementById("slideNext").disabled =
+          pageNum >= pdfDocObj.numPages;
+
+        const page = await pdfDocObj.getPage(pageNum);
+        const canvas = document.getElementById("pdfCanvas");
+        const ctx = canvas.getContext("2d");
+        const containerWidth = canvas.parentElement.clientWidth - 16;
+        const viewport = page.getViewport({ scale: 1 });
+        const scale = Math.min(containerWidth / viewport.width, 1.8);
+        const scaledViewport = page.getViewport({ scale });
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+        await page.render({ canvasContext: ctx, viewport: scaledViewport })
+          .promise;
+      }
+
+      function changeSlidePage(delta) {
+        if (!pdfDocObj) return;
+        renderSlidePage(currentSlidePage + delta);
+      }
+
+      // Sync slide page with current chapter segment (best-effort mapping)
+      function syncSlideToSegment() {
+        if (!pdfDocObj || !slideVisible) return;
+        // Simple heuristic: map chapter progress to PDF pages
+        const totalChapters = chapters.length;
+        const totalPages = pdfDocObj.numPages;
+        if (!totalChapters || !totalPages) return;
+        const estimatedPage = Math.max(
+          1,
+          Math.round((currentChapter / totalChapters) * totalPages),
+        );
+        renderSlidePage(estimatedPage);
+      }
+      let currentChapter = 0;
+      let currentSegment = 0;
+      let isPlaying = false;
+      let isPaused = false;
+      let ttsUtterance = null;
+      let speechSpeed = 1;
+      let voices = [];
+      let selectedVoice = null;
+
+      // Q&A state
+      let activeQuestions = []; // list of questions for current stop
+      let currentQIndex = 0;
+      let qaAnswers = [];
+      let qaTimerInterval = null;
+      let qaTimeLeft = 120; // 2 minutes per question
+
+      // ===================== INIT =====================
+      async function init() {
+        currentUser = await requireAuth();
+        if (!currentUser) return;
+
+        // Check groq key
+        if (groqApiKey) {
+          document.getElementById("groqSetup").style.display = "none";
+          document.getElementById("groqKey").value = groqApiKey;
+        }
+
+        // Load voices
+        loadVoices();
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+
+        // Drag & drop
+        const zone = document.getElementById("uploadZone");
+        zone.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          zone.classList.add("drag");
+        });
+        zone.addEventListener("dragleave", () => zone.classList.remove("drag"));
+        zone.addEventListener("drop", (e) => {
+          e.preventDefault();
+          zone.classList.remove("drag");
+          const f = e.dataTransfer.files[0];
+          if (f) processFile(f);
+        });
+      }
+
+      function saveGroqKey() {
+        const key = document.getElementById("groqKey").value.trim();
+        if (!key.startsWith("gsk_"))
+          return alert("Key không hợp lệ! Phải bắt đầu bằng gsk_");
+        groqApiKey = key;
+        localStorage.setItem("groqKey", key);
+        document.getElementById("groqSetup").style.display = "none";
+        alert("✅ Đã lưu Groq API Key!");
+      }
+
+      function loadVoices() {
+        voices = window.speechSynthesis.getVoices();
+        const sel = document.getElementById("voiceSelect");
+        sel.innerHTML = "";
+        // Prioritize Vietnamese voices
+        const viVoices = voices.filter((v) => v.lang.includes("vi"));
+        const otherVoices = voices.filter((v) => !v.lang.includes("vi"));
+        const allVoices = [...viVoices, ...otherVoices];
+        if (allVoices.length === 0) {
+          sel.innerHTML = "<option>Giọng mặc định hệ thống</option>";
+          return;
+        }
+        allVoices.forEach((v, i) => {
+          const opt = document.createElement("option");
+          opt.value = i;
+          opt.textContent = `${v.name} (${v.lang})`;
+          if (v.lang.includes("vi")) opt.textContent = "🇻🇳 " + opt.textContent;
+          sel.appendChild(opt);
+        });
+        selectedVoice = viVoices[0] || allVoices[0];
+        sel.addEventListener("change", () => {
+          selectedVoice = allVoices[parseInt(sel.value)];
+        });
+      }
+
+      // ===================== FILE HANDLING =====================
+      function handleFile(e) {
+        const file = e.target.files[0];
+        if (file) processFile(file);
+      }
+
+      async function processFile(file) {
+        if (!groqApiKey) {
+          alert("Vui lòng nhập Groq API Key trước!");
+          document.getElementById("groqKey").focus();
+          return;
+        }
+        showProcessing(true, "Đang đọc file PDF...");
+
+        try {
+          const text = await extractPDFText(file);
+          showProcessing(true, "AI đang phân tích nội dung...");
+          await buildChapters(text, file.name);
+          showProcessing(false);
+          showPlayer();
+          goToChapter(0);
+          saveProgress();
+        } catch (err) {
+          showProcessing(false);
+          alert("Lỗi: " + err.message);
+          console.error(err);
+        }
+      }
+
+      async function extractPDFText(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        pdfDocObj = pdf; // lưu lại để render slide
+        document.getElementById("slideTotalPages").textContent = pdf.numPages;
+        let fullText = "";
+        const totalPages = pdf.numPages;
+
+        for (let i = 1; i <= totalPages; i++) {
+          showProcessing(true, `Đang đọc trang ${i}/${totalPages}...`);
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          const pageText = content.items.map((item) => item.str).join(" ");
+          fullText += pageText + "\n\n";
+        }
+        return fullText;
+      }
+
+      async function buildChapters(text, filename) {
+        // Split into chapters by detecting headings
+        showProcessing(true, "AI đang tạo bài giảng (có thể mất 1-2 phút)...");
+
+        const prompt = `Bạn là chuyên gia TTHCM. Hãy phân tích văn bản sau và tạo cấu trúc bài giảng.
+
+VĂN BẢN:
+${text.slice(0, 8000)}
+
+Yêu cầu: Trả về JSON theo format sau (KHÔNG có markdown, KHÔNG có backtick):
+{
+  "chapters": [
+    {
+      "title": "Tên chương/phần",
+      "segments": [
+        "Đoạn giảng 1 (khoảng 100-150 từ, giọng giảng viên tự nhiên)",
+        "Đoạn giảng 2...",
+        "Đoạn giảng 3..."
+      ],
+      "questions": [
+        {"q": "Câu hỏi kiểm tra 1?", "hint": "Gợi ý trả lời..."},
+        {"q": "Câu hỏi kiểm tra 2?", "hint": "Gợi ý trả lời..."}
+      ]
+    }
+  ]
+}
+
+Tạo tối đa 5 chương. Mỗi chương có 3-5 đoạn giảng và 2 câu hỏi kiểm tra. Viết bằng tiếng Việt, giọng giảng viên chuyên nghiệp.`;
+
+        const response = await callGroq(prompt, 4000);
+        if (!response) throw new Error("Không nhận được phản hồi từ AI");
+
+        try {
+          let json = response.trim();
+          // Remove markdown if present
+          json = json.replace(/```json|```/g, "").trim();
+          const data = JSON.parse(json);
+          chapters = data.chapters || [];
+          if (chapters.length === 0)
+            throw new Error("Không phân tích được chương");
+        } catch (e) {
+          // Fallback: create single chapter from raw text
+          const words = text.split(" ");
+          const segSize = 100;
+          const segs = [];
+          for (let i = 0; i < Math.min(words.length, 600); i += segSize) {
+            segs.push(words.slice(i, i + segSize).join(" "));
+          }
+          chapters = [
+            {
+              title: filename.replace(".pdf", ""),
+              segments: segs.slice(0, 5),
+              questions: [
+                {
+                  q: "Bạn hiểu gì về nội dung vừa học?",
+                  hint: "Tóm tắt ý chính",
+                },
+                {
+                  q: "Nội dung này có ý nghĩa thực tiễn như thế nào?",
+                  hint: "Liên hệ thực tế",
+                },
+              ],
+            },
+          ];
+        }
+      }
+
+      // ===================== PLAYER =====================
+      function showPlayer() {
+        document.getElementById("uploadSection").style.display = "none";
+        document.getElementById("playerWrap").classList.add("active");
+        renderChapterList();
+      }
+
+      function renderChapterList() {
+        document.getElementById("chapterItems").innerHTML = chapters
+          .map(
+            (ch, i) => `
+    <div class="chapter-item ${i === 0 ? "active" : ""}" id="chItem${i}" onclick="goToChapter(${i})">
+      <div class="ch-item-num">${i + 1}</div>
+      <div class="ch-item-title">${ch.title}</div>
+      <div class="ch-item-status">${ch.segments.length} phần</div>
+    </div>`,
+          )
+          .join("");
+      }
+
+      function goToChapter(idx) {
+        stopSpeech();
+        currentChapter = idx;
+        currentSegment = 0;
+        isPlaying = false;
+        isPaused = false;
+
+        const ch = chapters[idx];
+        document.getElementById("chBadge").textContent = idx + 1;
+        document.getElementById("chTitle").textContent = ch.title;
+        document.getElementById("chSub").textContent =
+          `${ch.segments.length} phần · ${ch.questions.length} câu hỏi`;
+        document.getElementById("playIcon").className = "fas fa-play";
+        updateChapterListUI(idx);
+        renderSegDots();
+        renderTranscript("");
+        document.getElementById("chProgFill").style.width = "0%";
+        document.getElementById("ctrlTime").textContent =
+          `0 / ${ch.segments.length} phần`;
+        closeQA();
+        setStatus("paused", "Sẵn sàng");
+        syncSlideToSegment(); // sync PDF slide khi đổi chương
+      }
+
+      function updateChapterListUI(activeIdx) {
+        chapters.forEach((_, i) => {
+          const el = document.getElementById(`chItem${i}`);
+          if (el)
+            el.className = `chapter-item ${i === activeIdx ? "active" : ""}`;
+        });
+      }
+
+      function renderSegDots() {
+        const ch = chapters[currentChapter];
+        document.getElementById("segDots").innerHTML = ch.segments
+          .map(
+            (_, i) =>
+              `<div class="seg-dot" id="dot${i}" title="Phần ${i + 1}"></div>`,
+          )
+          .join("");
+      }
+
+      function updateDots() {
+        const ch = chapters[currentChapter];
+        ch.segments.forEach((_, i) => {
+          const dot = document.getElementById(`dot${i}`);
+          if (!dot) return;
+          dot.className =
+            "seg-dot" +
+            (i < currentSegment
+              ? " done"
+              : i === currentSegment
+                ? " current"
+                : "");
+        });
+      }
+
+      function renderTranscript(text) {
+        const area = document.getElementById("transcriptArea");
+        if (!text) {
+          area.innerHTML = `<div class="lecture-empty"><i class="fas fa-volume-up"></i><div style="font-size:0.85rem;color:var(--gray-500);">Nhấn <strong>Phát</strong> để bắt đầu giảng bài</div></div>`;
+          return;
+        }
+        area.innerHTML = `<p>${text}</p>`;
+        area.scrollTop = 0;
+      }
+
+      // ===================== SPEECH =====================
+      function togglePlay() {
+        if (isPlaying) {
+          pauseSpeech();
+        } else if (isPaused) {
+          resumeSpeech();
+        } else {
+          startSpeech();
+        }
+      }
+
+      function startSpeech() {
+        if (currentSegment >= chapters[currentChapter].segments.length) {
+          currentSegment = 0;
+        }
+        speakSegment(currentSegment);
+      }
+
+      function speakSegment(segIdx) {
+        const ch = chapters[currentChapter];
+        if (segIdx >= ch.segments.length) {
+          onChapterEnd();
+          return;
+        }
+        currentSegment = segIdx;
+        const text = ch.segments[segIdx];
+        renderTranscript(text);
+        updateDots();
+
+        const pct = ((segIdx + 1) / ch.segments.length) * 100;
+        document.getElementById("chProgFill").style.width = pct + "%";
+        document.getElementById("ctrlTime").textContent =
+          `${segIdx + 1} / ${ch.segments.length} phần`;
+        document.getElementById("chSub").textContent =
+          `Phần ${segIdx + 1} / ${ch.segments.length}`;
+
+        stopSpeech();
+        ttsUtterance = new SpeechSynthesisUtterance(text);
+        ttsUtterance.lang = "vi-VN";
+        ttsUtterance.rate = speechSpeed;
+        if (selectedVoice) ttsUtterance.voice = selectedVoice;
+
+        ttsUtterance.onstart = () => {
+          isPlaying = true;
+          isPaused = false;
+          document.getElementById("playIcon").className = "fas fa-pause";
+          setStatus("speaking", "Đang giảng bài");
+        };
+
+        ttsUtterance.onend = () => {
+          isPlaying = false;
+          // After each segment, check if we should ask a question
+          const midPoint = Math.floor(ch.segments.length / 2);
+          if (segIdx === midPoint - 1 || segIdx === ch.segments.length - 1) {
+            // Ask questions
+            triggerQA(ch.questions, segIdx === ch.segments.length - 1);
+          } else {
+            speakSegment(segIdx + 1);
+          }
+        };
+
+        ttsUtterance.onerror = (e) => {
+          console.error("TTS error:", e);
+          isPlaying = false;
+          speakSegment(segIdx + 1);
+        };
+
+        window.speechSynthesis.speak(ttsUtterance);
+      }
+
+      function pauseSpeech() {
+        window.speechSynthesis.pause();
+        isPlaying = false;
+        isPaused = true;
+        document.getElementById("playIcon").className = "fas fa-play";
+        setStatus("paused", "Tạm dừng");
+      }
+
+      function resumeSpeech() {
+        window.speechSynthesis.resume();
+        isPlaying = true;
+        isPaused = false;
+        document.getElementById("playIcon").className = "fas fa-pause";
+        setStatus("speaking", "Đang giảng bài");
+      }
+
+      function stopSpeech() {
+        window.speechSynthesis.cancel();
+        isPlaying = false;
+        isPaused = false;
+        document.getElementById("playIcon").className = "fas fa-play";
+      }
+
+      function replaySegment() {
+        stopSpeech();
+        speakSegment(currentSegment);
+      }
+
+      function prevSegment() {
+        stopSpeech();
+        closeQA();
+        if (currentSegment > 0) speakSegment(currentSegment - 1);
+      }
+
+      function nextSegment() {
+        stopSpeech();
+        closeQA();
+        speakSegment(currentSegment + 1);
+      }
+
+      function setSpeed(s) {
+        speechSpeed = s;
+        document
+          .querySelectorAll(".speed-btn")
+          .forEach((b) => b.classList.remove("active"));
+        event.target.classList.add("active");
+        if (isPlaying) {
+          stopSpeech();
+          speakSegment(currentSegment);
+        }
+      }
+
+      function onChapterEnd() {
+        isPlaying = false;
+        document.getElementById("playIcon").className = "fas fa-play";
+        setStatus("paused", "Hoàn thành chương");
+        // Mark chapter as done
+        const el = document.getElementById(`chItem${currentChapter}`);
+        if (el) el.classList.add("done");
+
+        // Auto go to next chapter
+        if (currentChapter < chapters.length - 1) {
+          setTimeout(() => {
+            if (
+              confirm(
+                `Hoàn thành "${chapters[currentChapter].title}"! Tiếp tục chương tiếp theo?`,
+              )
+            ) {
+              goToChapter(currentChapter + 1);
+            }
+          }, 500);
+        } else {
+          setTimeout(
+            () => alert("🎉 Chúc mừng! Bạn đã hoàn thành toàn bộ bài giảng!"),
+            500,
+          );
+        }
+        if (currentUser)
+          logStudyTime(
+            currentUser.id,
+            Math.ceil(chapters[currentChapter].segments.length * 2),
+          );
+      }
+
+      // ===================== Q&A =====================
+      function triggerQA(questions, isEndOfChapter) {
+        stopSpeech();
+        setStatus("question", "Giảng viên đang hỏi");
+
+        activeQuestions = questions || [];
+        currentQIndex = 0;
+        qaAnswers = [];
+
+        if (activeQuestions.length === 0) {
+          if (!isEndOfChapter) speakSegment(currentSegment + 1);
+          else onChapterEnd();
+          return;
+        }
+        showQuestion(0, isEndOfChapter);
+      }
+
+      function showQuestion(idx, isEndOfChapter) {
+        const panel = document.getElementById("qaPanel");
+        const q = activeQuestions[idx];
+        panel.classList.add("show");
+        document.getElementById("qaQuestion").textContent = q.q;
+        document.getElementById("qaCounter").textContent =
+          `Câu hỏi ${idx + 1}/${activeQuestions.length}`;
+        document.getElementById("qaAnswer").value = "";
+        document.getElementById("aiFeedback").className = "ai-feedback";
+        document.getElementById("qaSubmitBtn").disabled = false;
+        document.getElementById("qaSubmitBtn").innerHTML =
+          '<i class="fas fa-paper-plane"></i> Gửi câu trả lời';
+
+        // Timer
+        clearInterval(qaTimerInterval);
+        qaTimeLeft = 120;
+        updateQaTimer();
+        qaTimerInterval = setInterval(() => {
+          qaTimeLeft--;
+          updateQaTimer();
+          if (qaTimeLeft <= 0) {
+            clearInterval(qaTimerInterval);
+            submitAnswer(true);
+          }
+        }, 1000);
+
+        // Store isEndOfChapter flag
+        panel.dataset.endOfChapter = isEndOfChapter;
+        document.getElementById("qaAnswer").focus();
+      }
+
+      function updateQaTimer() {
+        const m = Math.floor(qaTimeLeft / 60);
+        const s = qaTimeLeft % 60;
+        document.getElementById("qaTimer").textContent =
+          `⏱ ${m}:${String(s).padStart(2, "0")}`;
+        if (qaTimeLeft <= 30)
+          document.getElementById("qaTimer").style.color = "#ef5350";
+        else document.getElementById("qaTimer").style.color = "";
+      }
+
+      async function submitAnswer(timeout = false) {
+        clearInterval(qaTimerInterval);
+        const answer = document.getElementById("qaAnswer").value.trim();
+        const q = activeQuestions[currentQIndex];
+
+        if (!answer && !timeout) return;
+
+        document.getElementById("qaSubmitBtn").disabled = true;
+        document.getElementById("qaSubmitBtn").innerHTML =
+          '<i class="fas fa-spinner fa-spin"></i> Đang đánh giá...';
+        document.getElementById("qaLoading").style.display = "flex";
+
+        qaAnswers.push({
+          q: q.q,
+          a: answer || "(Không trả lời)",
+          hint: q.hint,
+        });
+
+        // AI evaluate
+        const feedback = await evaluateAnswer(q.q, q.hint, answer || "");
+        document.getElementById("qaLoading").style.display = "none";
+
+        const fbEl = document.getElementById("aiFeedback");
+        fbEl.innerHTML = feedback.text;
+        fbEl.className = `ai-feedback ${feedback.good ? "good" : "bad"} show`;
+
+        // Speak feedback
+        speakFeedback(feedback.text);
+
+        document.getElementById("qaSubmitBtn").innerHTML = "Tiếp tục →";
+        document.getElementById("qaSubmitBtn").disabled = false;
+        document.getElementById("qaSubmitBtn").onclick = goNextQuestion;
+      }
+
+      function goNextQuestion() {
+        const isEndOfChapter =
+          document.getElementById("qaPanel").dataset.endOfChapter === "true";
+        currentQIndex++;
+        if (currentQIndex < activeQuestions.length) {
+          showQuestion(currentQIndex, isEndOfChapter);
+        } else {
+          closeQA();
+          document.getElementById("qaSubmitBtn").onclick = submitAnswer;
+          if (isEndOfChapter) {
+            onChapterEnd();
+          } else {
+            speakSegment(currentSegment + 1);
+          }
+        }
+      }
+
+      async function evaluateAnswer(question, hint, answer) {
+        if (!groqApiKey) {
+          return {
+            good: true,
+            text: `✅ Đã ghi nhận câu trả lời của bạn.<br><br>💡 <strong>Gợi ý:</strong> ${hint}`,
+          };
+        }
+        try {
+          const prompt = `Bạn là giảng viên TTHCM. Học viên trả lời câu hỏi sau:
+
+Câu hỏi: ${question}
+Gợi ý đúng: ${hint}
+Câu trả lời của học viên: ${answer || "(Không trả lời)"}
+
+Hãy đánh giá ngắn gọn (2-3 câu), chỉ ra điểm đúng và thiếu sót, rồi giải thích thêm. Bắt đầu bằng ✅ nếu tốt hoặc 💬 nếu cần bổ sung. Viết bằng tiếng Việt, thân thiện.`;
+
+          const text = await callGroq(prompt, 300);
+          const isGood =
+            text.includes("✅") ||
+            text.toLowerCase().includes("đúng") ||
+            text.toLowerCase().includes("tốt");
+          return { good: isGood, text: text || `💡 Gợi ý: ${hint}` };
+        } catch {
+          return { good: true, text: `💡 <strong>Gợi ý:</strong> ${hint}` };
+        }
+      }
+
+      function speakFeedback(text) {
+        const clean = text.replace(/<[^>]*>/g, "").replace(/[✅💬💡]/g, "");
+        const utt = new SpeechSynthesisUtterance(clean);
+        utt.lang = "vi-VN";
+        utt.rate = speechSpeed;
+        if (selectedVoice) utt.voice = selectedVoice;
+        window.speechSynthesis.speak(utt);
+      }
+
+      function skipQuestion() {
+        clearInterval(qaTimerInterval);
+        window.speechSynthesis.cancel();
+        goNextQuestion();
+      }
+
+      function closeQA() {
+        clearInterval(qaTimerInterval);
+        document.getElementById("qaPanel").classList.remove("show");
+        document.getElementById("qaSubmitBtn").onclick = submitAnswer;
+      }
+
+      // ===================== GROQ API =====================
+      async function callGroq(prompt, maxTokens = 1000) {
+        if (!groqApiKey) return null;
+        try {
+          const res = await fetch(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${groqApiKey}`,
+              },
+              body: JSON.stringify({
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "user", content: prompt }],
+                max_tokens: maxTokens,
+                temperature: 0.7,
+              }),
+            },
+          );
+          const data = await res.json();
+          if (data.error) {
+            console.error("Groq error:", data.error);
+            return null;
+          }
+          return data.choices?.[0]?.message?.content || null;
+        } catch (e) {
+          console.error("Groq fetch error:", e);
+          return null;
+        }
+      }
+
+      // ===================== HELPERS =====================
+      function setStatus(type, label) {
+        const el = document.getElementById("statusBadge");
+        el.className = `status-badge ${type}`;
+        el.innerHTML = `<span class="pulse"></span> ${label}`;
+      }
+
+      function showProcessing(show, msg = "") {
+        const info = document.getElementById("processingInfo");
+        info.style.display = show ? "block" : "none";
+        if (msg) document.getElementById("processingMsg").textContent = msg;
+      }
+
+      function uploadNew() {
+        stopSpeech();
+        closeQA();
+        chapters = [];
+        document.getElementById("playerWrap").classList.remove("active");
+        document.getElementById("uploadSection").style.display = "block";
+        document.getElementById("fileInput").value = "";
+        setStatus("paused", "Chờ tải lên");
+      }
+
+      async function saveProgress() {
+        if (!currentUser) return;
+        await logStudyTime(currentUser.id, 1);
+      }
+
+      document.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

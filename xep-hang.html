@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bảng xếp hạng - Giảng viên Ảo TTHCM</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <style>
+      .tab-row {
+        display: flex;
+        gap: 0;
+        margin-bottom: 18px;
+        background: #f5f5f5;
+        border-radius: 12px;
+        padding: 4px;
+      }
+      .tab-btn {
+        flex: 1;
+        padding: 9px;
+        border: none;
+        background: transparent;
+        border-radius: 9px;
+        font-family: inherit;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        color: var(--gray-500);
+        transition: all 0.15s;
+      }
+      .tab-btn.active {
+        background: white;
+        color: var(--red);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+
+      .rank-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .rank-item {
+        background: white;
+        border-radius: 12px;
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        border: 1.5px solid #f0f0f0;
+        transition: all 0.15s;
+      }
+      .rank-item:hover {
+        border-color: #ffcdd2;
+      }
+      .rank-item.me {
+        border-color: var(--red);
+        background: #fff8f8;
+      }
+      .rank-num {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.78rem;
+        font-weight: 900;
+        flex-shrink: 0;
+      }
+      .rank-1 {
+        background: linear-gradient(135deg, #f9a825, #f57f17);
+        color: white;
+        font-size: 1rem;
+      }
+      .rank-2 {
+        background: linear-gradient(135deg, #bdbdbd, #9e9e9e);
+        color: white;
+      }
+      .rank-3 {
+        background: linear-gradient(135deg, #cd7f32, #a0522d);
+        color: white;
+      }
+      .rank-other {
+        background: var(--gray-100);
+        color: var(--gray-600);
+      }
+      .rank-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--red-dark), var(--red));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.9rem;
+        flex-shrink: 0;
+      }
+      .rank-name {
+        font-weight: 700;
+        font-size: 0.85rem;
+      }
+      .rank-sub {
+        font-size: 0.7rem;
+        color: var(--gray-400);
+        margin-top: 1px;
+      }
+      .rank-value {
+        margin-left: auto;
+        text-align: right;
+      }
+      .rank-score {
+        font-family: "Oswald", sans-serif;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--red);
+      }
+      .rank-label {
+        font-size: 0.62rem;
+        color: var(--gray-400);
+      }
+
+      .my-rank-card {
+        background: linear-gradient(135deg, var(--red-dark), var(--red));
+        border-radius: 14px;
+        padding: 16px;
+        color: white;
+        margin-bottom: 18px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .mr-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+      }
+      .mr-info {
+        flex: 1;
+      }
+      .mr-title {
+        font-size: 0.72rem;
+        opacity: 0.8;
+      }
+      .mr-name {
+        font-size: 1rem;
+        font-weight: 800;
+      }
+      .mr-pos {
+        font-size: 0.8rem;
+        opacity: 0.8;
+      }
+      .mr-stats {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+        text-align: center;
+      }
+      .mr-stat {
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 8px;
+        padding: 8px 6px;
+      }
+      .mr-stat-val {
+        font-size: 1.1rem;
+        font-weight: 800;
+      }
+      .mr-stat-lbl {
+        font-size: 0.6rem;
+        opacity: 0.8;
+        margin-top: 1px;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--gray-400);
+      }
+      .empty-state i {
+        font-size: 2.5rem;
+        margin-bottom: 12px;
+        display: block;
+        opacity: 0.4;
+      }
+
+      .filter-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+      .filter-btn {
+        padding: 5px 12px;
+        border-radius: 10px;
+        border: 1.5px solid var(--gray-200);
+        background: white;
+        font-size: 0.72rem;
+        font-weight: 700;
+        cursor: pointer;
+        color: var(--gray-600);
+      }
+      .filter-btn.active {
+        background: var(--red-bg);
+        border-color: var(--red);
+        color: var(--red);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-inner">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-badge">
+            <i class="fas fa-trophy" style="color: #f9a825"></i>
+          </div>
+          <div class="logo-info">
+            <div class="logo-title">Bảng xếp hạng</div>
+            <div class="logo-sub">Top học viên · TTHCM</div>
+          </div>
+        </a>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="container">
+        <!-- My rank card -->
+        <div class="my-rank-card" id="myRankCard" style="display: none">
+          <div class="mr-icon"><i class="fas fa-user-soldier"></i></div>
+          <div class="mr-info">
+            <div class="mr-title">Thứ hạng của bạn</div>
+            <div class="mr-name" id="myName">—</div>
+            <div class="mr-pos" id="myPos">—</div>
+          </div>
+        </div>
+        <div
+          class="mr-stats"
+          id="myStats"
+          style="margin-bottom: 18px; display: none"
+        >
+          <div class="stat-card" style="margin: 0">
+            <div class="stat-label">Điểm TB</div>
+            <div class="stat-value" id="myAvg" style="font-size: 1.5rem">—</div>
+          </div>
+          <div class="stat-card" style="margin: 0">
+            <div class="stat-label">Streak</div>
+            <div class="stat-value" id="myStreak" style="font-size: 1.5rem">
+              —
+            </div>
+          </div>
+          <div class="stat-card" style="margin: 0">
+            <div class="stat-label">Đã học</div>
+            <div class="stat-value" id="myLearned" style="font-size: 1.5rem">
+              —
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-row">
+          <button class="tab-btn active" onclick="switchTab('score', this)">
+            🏆 Điểm TB
+          </button>
+          <button class="tab-btn" onclick="switchTab('streak', this)">
+            🔥 Streak
+          </button>
+          <button class="tab-btn" onclick="switchTab('learned', this)">
+            📚 Số câu
+          </button>
+        </div>
+
+        <!-- Leaderboard -->
+        <div class="rank-list" id="rankList">
+          <div class="empty-state">
+            <i class="fas fa-spinner fa-spin"></i>Đang tải...
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <nav class="bottom-nav">
+      <a href="index.html" class="nav-item"
+        ><i class="fas fa-home"></i><span>Trang chủ</span></a
+      >
+      <a href="chat.html" class="nav-item"
+        ><i class="fas fa-robot"></i><span>Chat AI</span></a
+      >
+      <a href="luyen-tap.html" class="nav-item"
+        ><i class="fas fa-book"></i><span>Luyện tập</span></a
+      >
+      <a href="thi-thu.html" class="nav-item"
+        ><i class="fas fa-pencil-alt"></i><span>Thi thử</span></a
+      >
+      <a href="tien-do.html" class="nav-item"
+        ><i class="fas fa-calendar-alt"></i><span>Tiến độ</span></a
+      >
+      <a href="xep-hang.html" class="nav-item active"
+        ><i class="fas fa-trophy"></i><span>Bảng XH</span></a
+      >
+      <a href="giang-bai.html" class="nav-item"
+        ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
+      >
+      <a href="cai-dat.html" class="nav-item"
+        ><i class="fas fa-cog"></i><span>Cài đặt</span></a
+      >
+    </nav>
+
+    <script>
+      if (localStorage.getItem("darkMode") === "1")
+        document.body.classList.add("dark");
+      let currentUser = null,
+        myProfile = null,
+        allData = [],
+        currentTab = "score";
+
+      async function init() {
+        currentUser = await requireAuth();
+        if (!currentUser) return;
+        myProfile = await getProfile(currentUser.id);
+
+        // Show my stats
+        if (myProfile) {
+          document.getElementById("myName").textContent =
+            myProfile.name || "Bạn";
+          document.getElementById("myAvg").textContent = parseFloat(
+            myProfile.avg_score || 0,
+          ).toFixed(1);
+          document.getElementById("myStreak").textContent =
+            (myProfile.streak || 0) + "🔥";
+          document.getElementById("myLearned").textContent =
+            myProfile.learned || 0;
+          document.getElementById("myRankCard").style.display = "flex";
+          document.getElementById("myStats").style.display = "grid";
+        }
+
+        await loadLeaderboard("score");
+      }
+
+      async function loadLeaderboard(sortBy) {
+        const listEl = document.getElementById("rankList");
+        listEl.innerHTML =
+          '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Đang tải...</div>';
+
+        const orderCol =
+          sortBy === "score"
+            ? "avg_score"
+            : sortBy === "streak"
+              ? "streak"
+              : "learned";
+
+        const { data, error } = await sb
+          .from("profiles")
+          .select(
+            "id, name, class_name, course, avg_score, streak, learned, progress",
+          )
+          .eq("role", "student")
+          .order(orderCol, { ascending: false })
+          .limit(30);
+
+        if (error || !data?.length) {
+          listEl.innerHTML =
+            '<div class="empty-state"><i class="fas fa-users"></i>Chưa có dữ liệu xếp hạng</div>';
+          return;
+        }
+
+        allData = data;
+        renderList(data, sortBy);
+
+        // Update my position
+        const myPos = data.findIndex((s) => s.id === currentUser?.id);
+        if (myPos >= 0) {
+          document.getElementById("myPos").textContent =
+            `Hạng #${myPos + 1} / ${data.length} học viên`;
+        }
+      }
+
+      function renderList(data, sortBy) {
+        const listEl = document.getElementById("rankList");
+        const medals = ["rank-1", "rank-2", "rank-3"];
+
+        listEl.innerHTML = data
+          .map((s, i) => {
+            const isMe = s.id === currentUser?.id;
+            const rankClass = i < 3 ? medals[i] : "rank-other";
+            const rankIcon =
+              i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1;
+            const sub =
+              [s.course, s.class_name].filter(Boolean).join(" · ") || "HVKTQS";
+            const initials = (s.name || "HV")
+              .split(" ")
+              .slice(-2)
+              .map((w) => w[0])
+              .join("")
+              .toUpperCase();
+
+            let mainVal, mainLabel;
+            if (sortBy === "score") {
+              mainVal = parseFloat(s.avg_score || 0).toFixed(1);
+              mainLabel = "điểm TB";
+            } else if (sortBy === "streak") {
+              mainVal = s.streak || 0;
+              mainLabel = "ngày streak";
+            } else {
+              mainVal = s.learned || 0;
+              mainLabel = "câu đã học";
+            }
+
+            return `<div class="rank-item ${isMe ? "me" : ""}">
+      <div class="rank-num ${rankClass}">${rankIcon}</div>
+      <div class="rank-avatar">${initials}</div>
+      <div>
+        <div class="rank-name">${s.name || "Học viên"}${isMe ? ' <span style="color:var(--red);font-size:0.65rem;">(Bạn)</span>' : ""}</div>
+        <div class="rank-sub">${sub}</div>
+      </div>
+      <div class="rank-value">
+        <div class="rank-score">${mainVal}</div>
+        <div class="rank-label">${mainLabel}</div>
+      </div>
+    </div>`;
+          })
+          .join("");
+      }
+
+      function switchTab(tab, btn) {
+        currentTab = tab;
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        loadLeaderboard(tab);
+      }
+
+      document.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

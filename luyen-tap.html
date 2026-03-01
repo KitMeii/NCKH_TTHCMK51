@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Luyện tập - Giảng viên Ảo TTHCM</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <!-- mammoth for .docx -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+      .import-zone {
+        border: 2px dashed #ddd;
+        border-radius: 16px;
+        padding: 28px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: white;
+        position: relative;
+        margin-bottom: 14px;
+      }
+      .import-zone:hover {
+        border-color: var(--red);
+        background: var(--red-bg);
+      }
+      .import-zone input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+      }
+      .import-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+      .parsing-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .parsing-box {
+        background: white;
+        border-radius: 16px;
+        padding: 32px 28px;
+        text-align: center;
+        max-width: 300px;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-inner">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-badge"><i class="fas fa-star"></i>MTA</div>
+          <div class="logo-info">
+            <div class="logo-title">Luyện tập</div>
+            <div class="logo-sub">Ôn tập Tư tưởng Hồ Chí Minh</div>
+          </div>
+        </a>
+        <div class="header-actions">
+          <button class="hdr-btn" id="importBtn" title="Import câu hỏi">
+            <i class="fas fa-file-import"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <div class="container">
+        <!-- Import zone (hidden by default) -->
+        <div id="importZone" style="display: none">
+          <div class="import-zone" id="dropZone">
+            <input
+              type="file"
+              accept=".docx,.pdf,.txt"
+              id="fileImport"
+              onchange="handleImport(event)"
+            />
+            <div
+              style="font-size: 2rem; color: var(--red); margin-bottom: 10px"
+            >
+              <i class="fas fa-file-import"></i>
+            </div>
+            <div style="font-weight: 700; margin-bottom: 6px">
+              Import câu hỏi từ file
+            </div>
+            <div
+              style="
+                font-size: 0.78rem;
+                color: var(--gray-500);
+                margin-bottom: 12px;
+              "
+            >
+              Kéo thả hoặc nhấn để chọn file
+            </div>
+            <div style="display: flex; justify-content: center; gap: 6px">
+              <span
+                class="import-tag"
+                style="background: #fff3e0; color: #e65100"
+                >Word .docx</span
+              >
+              <span
+                class="import-tag"
+                style="background: #ffebee; color: var(--red)"
+                >PDF</span
+              >
+              <span
+                class="import-tag"
+                style="background: #e8f5e9; color: #2e7d32"
+                >TXT</span
+              >
+            </div>
+            <div
+              style="
+                margin-top: 12px;
+                font-size: 0.72rem;
+                color: var(--gray-400);
+              "
+            >
+              Định dạng câu hỏi:<br />
+              <code
+                style="
+                  background: var(--gray-100);
+                  padding: 2px 6px;
+                  border-radius: 4px;
+                  font-size: 0.7rem;
+                "
+                >Câu 1: [câu hỏi] / A. ... / B. ... / C. ... / D. ... / ĐÁP ÁN:
+                A</code
+              >
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom: 14px">
+            <div class="card-title">
+              <i class="fas fa-paste"></i>Hoặc dán văn bản trực tiếp
+            </div>
+            <textarea
+              id="pasteText"
+              class="form-input"
+              rows="6"
+              placeholder="Dán nội dung câu hỏi vào đây...&#10;&#10;Câu 1: Tư tưởng HCM là gì?&#10;A. Học thuyết Mác&#10;B. Hệ thống quan điểm về cách mạng VN&#10;C. Triết học phương Đông&#10;D. Nho giáo&#10;ĐÁP ÁN: B&#10;&#10;Câu 2: ..."
+            ></textarea>
+            <div style="display: flex; gap: 8px; margin-top: 10px">
+              <input
+                class="form-input"
+                id="importChapter"
+                placeholder="Tên chương (VD: Chương 1)"
+                style="flex: 1"
+              />
+              <button class="btn btn-red" onclick="parseAndImport()">
+                <i class="fas fa-magic"></i> Import
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- SELECT SCREEN -->
+        <div id="selectScreen">
+          <div class="page-title">Chọn chương để luyện tập</div>
+
+          <div id="chapterList">
+            <div class="empty" style="padding: 30px 0">
+              <i
+                class="fas fa-spinner fa-spin"
+                style="font-size: 1.5rem; color: var(--red)"
+              ></i>
+              <div
+                style="
+                  margin-top: 8px;
+                  font-size: 0.82rem;
+                  color: var(--gray-500);
+                "
+              >
+                Đang tải câu hỏi...
+              </div>
+            </div>
+          </div>
+
+          <div class="card" style="text-align: center">
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 12px;
+              "
+            >
+              <div>
+                <div
+                  style="
+                    font-family: &quot;Oswald&quot;, sans-serif;
+                    font-size: 1.6rem;
+                    font-weight: 700;
+                    color: var(--red);
+                  "
+                  id="totalDone"
+                >
+                  —
+                </div>
+                <div style="font-size: 0.7rem; color: var(--gray-500)">
+                  Bài đã luyện
+                </div>
+              </div>
+              <div>
+                <div
+                  style="
+                    font-family: &quot;Oswald&quot;, sans-serif;
+                    font-size: 1.6rem;
+                    font-weight: 700;
+                    color: #2e7d32;
+                  "
+                  id="bestQuiz"
+                >
+                  —
+                </div>
+                <div style="font-size: 0.7rem; color: var(--gray-500)">
+                  Điểm cao nhất
+                </div>
+              </div>
+              <div>
+                <div
+                  style="
+                    font-family: &quot;Oswald&quot;, sans-serif;
+                    font-size: 1.6rem;
+                    font-weight: 700;
+                    color: var(--gold-light);
+                  "
+                  id="quizCount"
+                >
+                  —
+                </div>
+                <div style="font-size: 0.7rem; color: var(--gray-500)">
+                  Lần luyện tập
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- QUIZ SCREEN -->
+        <div id="quizScreen" style="display: none">
+          <div class="card">
+            <div class="quiz-header">
+              <div class="quiz-counter" id="qCounter">Câu 1/10</div>
+              <div class="quiz-score" id="qScore">✓ 0 đúng</div>
+            </div>
+            <div class="prog-track">
+              <div class="prog-fill" id="qProg" style="width: 0%"></div>
+            </div>
+            <div
+              style="
+                margin-top: 16px;
+                font-size: 0.95rem;
+                font-weight: 600;
+                line-height: 1.5;
+                min-height: 60px;
+              "
+              id="questionText"
+            ></div>
+            <div id="optionsArea" style="margin-top: 16px"></div>
+            <div
+              id="explanationBox"
+              style="
+                display: none;
+                margin-top: 12px;
+                background: var(--red-bg);
+                border-left: 3px solid var(--red);
+                padding: 12px;
+                border-radius: var(--radius-sm);
+                font-size: 0.82rem;
+                color: var(--gray-700);
+              "
+            ></div>
+          </div>
+          <div style="display: flex; gap: 10px">
+            <button class="btn btn-outline btn-full" onclick="exitQuiz()">
+              <i class="fas fa-times"></i> Thoát
+            </button>
+            <button
+              class="btn btn-red btn-full"
+              id="nextBtn"
+              style="display: none"
+              onclick="nextQ()"
+            >
+              <i class="fas fa-arrow-right"></i> Câu tiếp
+            </button>
+          </div>
+        </div>
+
+        <!-- RESULT SCREEN -->
+        <div id="resultScreen" style="display: none">
+          <div class="card result-card">
+            <div id="resultEmoji" style="font-size: 3rem; margin-bottom: 8px">
+              🎉
+            </div>
+            <div class="result-score" id="resultScore">0</div>
+            <div style="font-size: 1rem; font-weight: 700; margin-top: 2px">
+              /10 điểm
+            </div>
+            <div class="result-label" id="resultMsg">—</div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+                margin: 20px 0;
+                text-align: left;
+              "
+            >
+              <div
+                style="
+                  background: var(--gray-50);
+                  padding: 12px;
+                  border-radius: var(--radius);
+                "
+              >
+                <div style="font-size: 0.7rem; color: var(--gray-500)">
+                  Đúng
+                </div>
+                <div
+                  style="
+                    font-family: &quot;Oswald&quot;, sans-serif;
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    color: #2e7d32;
+                  "
+                  id="rCorrect"
+                >
+                  0
+                </div>
+              </div>
+              <div
+                style="
+                  background: var(--gray-50);
+                  padding: 12px;
+                  border-radius: var(--radius);
+                "
+              >
+                <div style="font-size: 0.7rem; color: var(--gray-500)">Sai</div>
+                <div
+                  style="
+                    font-family: &quot;Oswald&quot;, sans-serif;
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    color: var(--red);
+                  "
+                  id="rWrong"
+                >
+                  0
+                </div>
+              </div>
+            </div>
+            <div
+              style="font-size: 0.78rem; color: #2e7d32; margin-bottom: 16px"
+              id="savedMsg"
+            ></div>
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <button class="btn btn-red btn-full" id="retryBtn">
+                <i class="fas fa-redo"></i> Làm lại
+              </button>
+              <button class="btn btn-outline btn-full" onclick="exitQuiz()">
+                <i class="fas fa-list"></i> Chọn chương khác
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Parsing overlay -->
+    <div class="parsing-overlay" id="parsingOverlay" style="display: none">
+      <div class="parsing-box">
+        <div style="font-size: 2rem; margin-bottom: 12px">
+          <i class="fas fa-cog fa-spin" style="color: var(--red)"></i>
+        </div>
+        <div style="font-weight: 700; margin-bottom: 6px" id="parsingMsg">
+          Đang phân tích file...
+        </div>
+        <div
+          style="font-size: 0.75rem; color: var(--gray-500)"
+          id="parsingDetail"
+        >
+          Vui lòng đợi
+        </div>
+      </div>
+    </div>
+
+    <nav class="bottom-nav">
+      <a href="index.html" class="nav-item"
+        ><i class="fas fa-home"></i><span>Trang chủ</span></a
+      >
+      <a href="chat.html" class="nav-item"
+        ><i class="fas fa-comment-dots"></i><span>Chat AI</span></a
+      >
+      <a href="luyen-tap.html" class="nav-item active"
+        ><i class="fas fa-book"></i><span>Luyện tập</span></a
+      >
+      <a href="thi-thu.html" class="nav-item"
+        ><i class="fas fa-pencil-alt"></i><span>Thi thử</span></a
+      >
+      <a href="tien-do.html" class="nav-item"
+        ><i class="fas fa-calendar-alt"></i><span>Tiến độ</span></a
+      >
+      <a href="xep-hang.html" class="nav-item"
+        ><i class="fas fa-trophy"></i><span>Bảng XH</span></a
+      >
+      <a href="giang-bai.html" class="nav-item"
+        ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
+      >
+      <a href="cai-dat.html" class="nav-item"
+        ><i class="fas fa-cog"></i><span>Cài đặt</span></a
+      >
+    </nav>
+
+    <script>
+      if (localStorage.getItem("darkMode") === "1")
+        document.body.classList.add("dark");
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+      const LETTERS = ["A", "B", "C", "D"];
+      let currentUser = null;
+      let allChapters = {}; // { chapterName: [{q,opts,ans,exp}] }
+      let currentChapter = "";
+      let questions = [],
+        currentIdx = 0,
+        score = 0,
+        answered = false;
+
+      // ======================== INIT ========================
+      async function init() {
+        currentUser = await requireAuth();
+        if (!currentUser) return;
+
+        await loadQuestionsFromDB();
+        loadStats();
+
+        document.getElementById("importBtn").onclick = () => {
+          const iz = document.getElementById("importZone");
+          iz.style.display = iz.style.display === "none" ? "block" : "none";
+        };
+
+        // Drag & drop
+        const dz = document.getElementById("dropZone");
+        dz.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          dz.style.borderColor = "var(--red)";
+        });
+        dz.addEventListener("dragleave", () => (dz.style.borderColor = "#ddd"));
+        dz.addEventListener("drop", (e) => {
+          e.preventDefault();
+          dz.style.borderColor = "#ddd";
+          handleImport({ target: { files: e.dataTransfer.files } });
+        });
+      }
+
+      // ======================== LOAD FROM DB ========================
+      async function loadQuestionsFromDB() {
+        const { data, error } = await sb
+          .from("questions")
+          .select("*")
+          .order("chapter", { ascending: true })
+          .order("created_at", { ascending: true });
+
+        allChapters = {};
+
+        if (data && data.length > 0) {
+          data.forEach((q) => {
+            const ch = q.chapter || "Chưa phân loại";
+            if (!allChapters[ch]) allChapters[ch] = [];
+            allChapters[ch].push({
+              q: q.question,
+              opts: [q.option_a, q.option_b, q.option_c, q.option_d].filter(
+                Boolean,
+              ),
+              ans: q.correct_answer,
+              exp: q.explanation || "",
+            });
+          });
+        } else {
+          // Fallback: built-in questions
+          allChapters = {
+            "Chương 1 - Khái niệm & Cơ sở": builtinQ[1],
+            "Chương 2 - Độc lập dân tộc & CNXH": builtinQ[2],
+            "Chương 3 - Đạo đức cách mạng": builtinQ[3],
+            "Chương 4 - Nhà nước & Quân sự": builtinQ[4],
+          };
+        }
+        renderChapterList();
+      }
+
+      function renderChapterList() {
+        const chNames = Object.keys(allChapters);
+        const listEl = document.getElementById("chapterList");
+
+        if (chNames.length === 0) {
+          listEl.innerHTML = `<div class="card" style="text-align:center;padding:24px;">
+      <i class="fas fa-folder-open" style="font-size:2rem;color:var(--gray-300);margin-bottom:10px;display:block;"></i>
+      <div style="font-weight:700;margin-bottom:6px;">Chưa có câu hỏi</div>
+      <div style="font-size:0.8rem;color:var(--gray-500);margin-bottom:14px;">Nhấn nút <i class="fas fa-file-import"></i> để import câu hỏi từ Word/PDF</div>
+    </div>`;
+          return;
+        }
+
+        const totalQ = Object.values(allChapters).reduce(
+          (s, v) => s + v.length,
+          0,
+        );
+        const allQ = Object.values(allChapters).flat();
+
+        // Đếm câu sai
+        let wrongHtml = "";
+        if (currentUser) {
+          sb.from("wrong_answers")
+            .select("question_id", { count: "exact", head: true })
+            .eq("user_id", currentUser.id)
+            .then(({ count }) => {
+              if (count > 0) {
+                const btn = document.getElementById("wrongReviewBtn");
+                if (btn) {
+                  btn.style.display = "flex";
+                  btn.querySelector(".wrong-count").textContent =
+                    count + " câu";
+                }
+              }
+            });
+        }
+
+        listEl.innerHTML = `
+    <div class="card">
+      <div class="chapter-btn" id="wrongReviewBtn" onclick="startQuiz('__wrong__')" style="display:none;background:#fff3f3;border:1.5px solid #ffcdd2;">
+        <div class="chapter-num" style="background:linear-gradient(135deg,#c62828,#b71c1c);color:white;"><i class="fas fa-redo" style="font-size:0.8rem;"></i></div>
+        <div class="chapter-info">
+          <div class="chapter-name" style="color:#c62828;">Ôn tập câu trả lời sai</div>
+          <div class="chapter-meta wrong-count" style="color:#e57373;">...</div>
+        </div>
+        <i class="fas fa-chevron-right" style="color:#e57373"></i>
+      </div>
+      <div class="chapter-btn" onclick="startQuiz('__all__')">
+        <div class="chapter-num" style="background:linear-gradient(135deg,#b71c1c,#c62828);color:white;">★</div>
+        <div class="chapter-info">
+          <div class="chapter-name">Tất cả chương (Ngẫu nhiên)</div>
+          <div class="chapter-meta">${totalQ} câu · Ngẫu nhiên</div>
+        </div>
+        <i class="fas fa-chevron-right" style="color:var(--gray-400)"></i>
+      </div>
+      ${chNames
+        .map(
+          (ch, i) => `
+        <div class="chapter-btn" onclick="startQuiz('${ch.replace(/'/g, "\\'")}')">
+          <div class="chapter-num">${i + 1}</div>
+          <div class="chapter-info">
+            <div class="chapter-name">${ch}</div>
+            <div class="chapter-meta">${allChapters[ch].length} câu</div>
+          </div>
+          <i class="fas fa-chevron-right" style="color:var(--gray-400)"></i>
+        </div>`,
+        )
+        .join("")}
+    </div>`;
+      }
+
+      // ======================== IMPORT ========================
+      async function handleImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        showParsing(true, "Đang đọc file...", file.name);
+
+        let text = "";
+        try {
+          if (file.name.endsWith(".docx")) {
+            const buffer = await file.arrayBuffer();
+            const result = await mammoth.extractRawText({
+              arrayBuffer: buffer,
+            });
+            text = result.value;
+          } else if (file.name.endsWith(".pdf")) {
+            text = await extractPDFText(file);
+          } else {
+            text = await file.text();
+          }
+          showParsing(true, "Đang phân tích câu hỏi...", `${file.name}`);
+          document.getElementById("pasteText").value = text;
+          document.getElementById("importZone").style.display = "block";
+          showParsing(false);
+
+          // Auto scroll to paste area
+          document
+            .getElementById("pasteText")
+            .scrollIntoView({ behavior: "smooth" });
+        } catch (err) {
+          showParsing(false);
+          alert("Lỗi đọc file: " + err.message);
+        }
+      }
+
+      async function extractPDFText(file) {
+        const buffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+        let text = "";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          showParsing(true, `Đọc trang ${i}/${pdf.numPages}...`);
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map((it) => it.str).join(" ") + "\n";
+        }
+        return text;
+      }
+
+      function parseAndImport() {
+        const raw = document.getElementById("pasteText").value.trim();
+        const chapter =
+          document.getElementById("importChapter").value.trim() || "Chương mới";
+
+        if (!raw) return alert("Vui lòng nhập nội dung câu hỏi!");
+
+        const parsed = parseQuestions(raw);
+        if (parsed.length === 0)
+          return alert("Không tìm thấy câu hỏi! Kiểm tra lại định dạng.");
+
+        showParsing(
+          true,
+          `Đã tìm thấy ${parsed.length} câu hỏi`,
+          "Đang lưu vào database...",
+        );
+
+        saveQuestionsToDB(parsed, chapter)
+          .then(() => {
+            showParsing(false);
+            document.getElementById("pasteText").value = "";
+            document.getElementById("importChapter").value = "";
+            document.getElementById("importZone").style.display = "none";
+            alert(
+              `✅ Đã import thành công ${parsed.length} câu hỏi vào "${chapter}"!`,
+            );
+            loadQuestionsFromDB();
+          })
+          .catch((err) => {
+            showParsing(false);
+            alert("Lỗi lưu: " + err.message);
+          });
+      }
+
+      function parseQuestions(text) {
+        const questions = [];
+        // Support multiple formats
+        // Format 1: Câu X: ... A. ... B. ... ĐÁP ÁN: A
+        // Format 2: X. ... a) ... b) ... Đáp án: a
+        // Format 3: Question number followed by options
+
+        // Normalize
+        text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+        // Split by "Câu" keyword
+        const blocks = text
+          .split(/(?=Câu\s*\d+[:\.]\s*)/i)
+          .filter((b) => b.trim());
+
+        for (const block of blocks) {
+          try {
+            const lines = block
+              .split("\n")
+              .map((l) => l.trim())
+              .filter(Boolean);
+            if (lines.length < 3) continue;
+
+            // Extract question
+            const qLine = lines[0].replace(/^Câu\s*\d+[:\.]\s*/i, "").trim();
+            if (!qLine) continue;
+
+            // Extract options
+            const opts = [];
+            const optPatterns = [
+              /^[ABCD][\.:\)]\s+(.+)/i,
+              /^[abcd][\.:\)]\s+(.+)/i,
+            ];
+            for (const line of lines.slice(1)) {
+              for (const pat of optPatterns) {
+                const m = line.match(pat);
+                if (m) {
+                  opts.push(m[1].trim());
+                  break;
+                }
+              }
+              if (opts.length === 4) break;
+            }
+            if (opts.length < 2) continue;
+
+            // Extract answer
+            let ans = 0;
+            const ansLine = lines.find((l) => /đáp án|answer|correct/i.test(l));
+            if (ansLine) {
+              const ansMatch = ansLine.match(/[ABCD]/i);
+              if (ansMatch)
+                ans = ["A", "B", "C", "D"].indexOf(ansMatch[0].toUpperCase());
+            }
+
+            // Extract explanation
+            const expLine = lines.find((l) =>
+              /giải thích|ghi chú|note|explain/i.test(l),
+            );
+            const exp = expLine
+              ? expLine.replace(
+                  /^(giải thích|ghi chú|note|explain)[:\.]\s*/i,
+                  "",
+                )
+              : "";
+
+            questions.push({ q: qLine, opts, ans: Math.max(0, ans), exp });
+          } catch (e) {
+            continue;
+          }
+        }
+
+        // Fallback: try simple numbered format
+        if (questions.length === 0) {
+          const simpleBlocks = text.split(/\n(?=\d+[\.\)]\s)/);
+          for (const block of simpleBlocks) {
+            const lines = block
+              .split("\n")
+              .map((l) => l.trim())
+              .filter(Boolean);
+            if (lines.length < 3) continue;
+            const qLine = lines[0].replace(/^\d+[\.\)]\s*/, "").trim();
+            const opts = [];
+            for (const line of lines.slice(1)) {
+              const m = line.match(/^[ABCDabcd][\.\):\s]+(.+)/);
+              if (m) opts.push(m[1].trim());
+              if (opts.length === 4) break;
+            }
+            if (opts.length >= 2)
+              questions.push({ q: qLine, opts, ans: 0, exp: "" });
+          }
+        }
+
+        return questions;
+      }
+
+      async function saveQuestionsToDB(questions, chapter) {
+        // Ensure questions table exists (handled by setup.sql v2)
+        const rows = questions.map((q) => ({
+          user_id: currentUser.id,
+          chapter,
+          question: q.q,
+          option_a: q.opts[0] || "",
+          option_b: q.opts[1] || "",
+          option_c: q.opts[2] || "",
+          option_d: q.opts[3] || "",
+          correct_answer: q.ans,
+          explanation: q.exp,
+        }));
+
+        const { error } = await sb.from("questions").insert(rows);
+        if (error) throw new Error(error.message);
+      }
+
+      // ======================== QUIZ ========================
+      async function startQuiz(chapter) {
+        currentChapter = chapter;
+
+        if (chapter === "__wrong__") {
+          // Chế độ ôn câu sai: load từ wrong_answers JOIN questions
+          if (!currentUser) return alert("Vui lòng đăng nhập!");
+          const { data: wrongs } = await sb
+            .from("wrong_answers")
+            .select("question_id, wrong_count")
+            .eq("user_id", currentUser.id);
+          if (!wrongs || wrongs.length === 0) {
+            alert("Bạn chưa có câu nào trả lời sai! 🎉");
+            return;
+          }
+          const ids = wrongs.map((w) => w.question_id);
+          const { data: qs } = await sb
+            .from("questions")
+            .select("*")
+            .in("id", ids);
+          if (!qs || qs.length === 0) return alert("Không tìm thấy câu hỏi!");
+          questions = shuffle(qs).map((q) => ({
+            id: q.id,
+            q: q.question,
+            opts: [q.option_a, q.option_b, q.option_c, q.option_d].filter(
+              Boolean,
+            ),
+            ans: q.correct_answer,
+            exp: q.explanation,
+            chapter: q.chapter,
+          }));
+        } else {
+          questions =
+            chapter === "__all__"
+              ? shuffle(Object.values(allChapters).flat()).slice(0, 20)
+              : shuffle([...(allChapters[chapter] || [])]);
+        }
+
+        if (questions.length === 0) return alert("Chương này chưa có câu hỏi!");
+
+        currentIdx = 0;
+        score = 0;
+        answered = false;
+        wrongCount = 0;
+        document.getElementById("selectScreen").style.display = "none";
+        document.getElementById("resultScreen").style.display = "none";
+        document.getElementById("quizScreen").style.display = "block";
+        loadQ();
+        if (currentUser) logStudyTime(currentUser.id, 2);
+      }
+
+      function loadQ() {
+        answered = false;
+        const q = questions[currentIdx];
+        document.getElementById("qCounter").textContent =
+          `Câu ${currentIdx + 1}/${questions.length}`;
+        document.getElementById("qScore").textContent = `✓ ${score} đúng`;
+        document.getElementById("qProg").style.width =
+          (currentIdx / questions.length) * 100 + "%";
+        document.getElementById("questionText").textContent = q.q;
+        document.getElementById("explanationBox").style.display = "none";
+        document.getElementById("nextBtn").style.display = "none";
+        document.getElementById("optionsArea").innerHTML = q.opts
+          .map(
+            (o, i) =>
+              `<button class="option-btn" onclick="checkAns(${i})" id="opt${i}"><div class="opt-letter">${LETTERS[i]}</div><span>${o}</span></button>`,
+          )
+          .join("");
+      }
+
+      function checkAns(sel) {
+        if (answered) return;
+        answered = true;
+        const q = questions[currentIdx];
+        document
+          .querySelectorAll(".option-btn")
+          .forEach((b) => (b.disabled = true));
+        document.getElementById(`opt${q.ans}`).classList.add("correct");
+        if (sel !== q.ans) {
+          document.getElementById(`opt${sel}`).classList.add("wrong");
+          // Lưu câu sai vào Supabase
+          if (currentUser && q.id) {
+            sb.from("wrong_answers")
+              .upsert(
+                {
+                  user_id: currentUser.id,
+                  question_id: q.id,
+                  wrong_count: 1,
+                  last_wrong_at: new Date().toISOString(),
+                },
+                { onConflict: "user_id,question_id", ignoreDuplicates: false },
+              )
+              .then(({ error }) => {
+                if (!error) wrongCount = (wrongCount || 0) + 1;
+              });
+          }
+        } else {
+          score++;
+        }
+        document.getElementById("qScore").textContent = `✓ ${score} đúng`;
+        const exp = document.getElementById("explanationBox");
+        exp.style.display = "block";
+        exp.innerHTML = `<strong>${sel === q.ans ? "✅ Chính xác!" : "❌ Chưa đúng!"}</strong>${q.exp ? `<br><br>💡 ${q.exp}` : ""}`;
+        document.getElementById("nextBtn").style.display = "block";
+      }
+
+      function nextQ() {
+        currentIdx++;
+        if (currentIdx < questions.length) loadQ();
+        else showResult();
+      }
+
+      async function showResult() {
+        document.getElementById("quizScreen").style.display = "none";
+        document.getElementById("resultScreen").style.display = "block";
+        const pts = Math.round((score / questions.length) * 10);
+        document.getElementById("resultScore").textContent = pts;
+        document.getElementById("rCorrect").textContent = score;
+        document.getElementById("rWrong").textContent =
+          questions.length - score;
+        let emoji = "😔",
+          msg = "Cần cố gắng thêm!";
+        if (pts >= 9) {
+          emoji = "🏆";
+          msg = "Xuất sắc!";
+        } else if (pts >= 7) {
+          emoji = "🎉";
+          msg = "Tốt lắm!";
+        } else if (pts >= 5) {
+          emoji = "👍";
+          msg = "Khá tốt! Ôn lại một số phần.";
+        }
+        document.getElementById("resultEmoji").textContent = emoji;
+        document.getElementById("resultMsg").textContent = msg;
+        if (currentUser) {
+          await saveQuizResult(currentUser.id, {
+            chapter: 0,
+            score: pts,
+            correct: score,
+            total: questions.length,
+          });
+          await logStudyTime(currentUser.id, Math.ceil(questions.length * 0.5));
+          document.getElementById("savedMsg").textContent =
+            "✓ Kết quả đã được lưu vào tài khoản";
+          loadStats();
+        }
+        document.getElementById("retryBtn").onclick = () =>
+          startQuiz(currentChapter);
+      }
+
+      function exitQuiz() {
+        document.getElementById("quizScreen").style.display = "none";
+        document.getElementById("resultScreen").style.display = "none";
+        document.getElementById("selectScreen").style.display = "block";
+      }
+
+      async function loadStats() {
+        if (!currentUser) return;
+        const { data } = await sb
+          .from("quiz_results")
+          .select("score,correct,total")
+          .eq("user_id", currentUser.id);
+        if (data && data.length > 0) {
+          document.getElementById("totalDone").textContent = data.reduce(
+            (s, r) => s + r.total,
+            0,
+          );
+          document.getElementById("bestQuiz").textContent = Math.max(
+            ...data.map((r) => parseFloat(r.score)),
+          ).toFixed(1);
+          document.getElementById("quizCount").textContent = data.length;
+        } else {
+          document.getElementById("totalDone").textContent = 0;
+          document.getElementById("bestQuiz").textContent = "—";
+          document.getElementById("quizCount").textContent = 0;
+        }
+      }
+
+      function showParsing(show, msg = "", detail = "") {
+        document.getElementById("parsingOverlay").style.display = show
+          ? "flex"
+          : "none";
+        if (msg) document.getElementById("parsingMsg").textContent = msg;
+        if (detail)
+          document.getElementById("parsingDetail").textContent = detail;
+      }
+
+      function shuffle(arr) {
+        return [...arr].sort(() => Math.random() - 0.5);
+      }
+
+      // ======================== BUILT-IN QUESTIONS (fallback) ========================
+      const builtinQ = {
+        1: [
+          {
+            q: "Tư tưởng HCM là kết quả vận dụng sáng tạo chủ nghĩa nào?",
+            opts: ["Mác - Lênin", "Khổng giáo", "Tam dân", "Phật giáo"],
+            ans: 0,
+            exp: "Tư tưởng HCM là vận dụng sáng tạo chủ nghĩa Mác - Lênin vào điều kiện VN.",
+          },
+          {
+            q: "Cơ sở lý luận chủ yếu của Tư tưởng HCM là gì?",
+            opts: [
+              "Triết học phương Đông",
+              "Chủ nghĩa Mác - Lênin",
+              "Khai sáng Pháp",
+              "Nho giáo",
+            ],
+            ans: 1,
+            exp: "Chủ nghĩa Mác - Lênin là cơ sở lý luận trực tiếp nhất.",
+          },
+          {
+            q: "Mục tiêu cuối cùng của Tư tưởng HCM là gì?",
+            opts: [
+              "Đánh thực dân",
+              "Độc lập, tự do, hạnh phúc",
+              "Xây dựng CNXH",
+              "Thống nhất đất nước",
+            ],
+            ans: 1,
+            exp: "Độc lập cho dân tộc, tự do và hạnh phúc cho nhân dân.",
+          },
+          {
+            q: "HCM đọc Sơ thảo luận cương của Lênin năm nào?",
+            opts: ["1919", "1920", "1921", "1924"],
+            ans: 1,
+            exp: "Năm 1920, tại Đại hội Tours.",
+          },
+          {
+            q: "Giá trị truyền thống nào được HCM kế thừa?",
+            opts: [
+              "Cá nhân chủ nghĩa",
+              "Dân tộc cực đoan",
+              "Chủ nghĩa yêu nước",
+              "Phong kiến",
+            ],
+            ans: 2,
+            exp: "Chủ nghĩa yêu nước truyền thống là cơ sở quan trọng.",
+          },
+        ],
+        2: [
+          {
+            q: "HCM khẳng định: 'Không có gì quý hơn...'",
+            opts: ["vàng bạc", "độc lập tự do", "chủ nghĩa xã hội", "hòa bình"],
+            ans: 1,
+            exp: "Câu nói bất hủ thể hiện tư tưởng cốt lõi của HCM.",
+          },
+          {
+            q: "Sợi chỉ đỏ xuyên suốt tư tưởng HCM là gì?",
+            opts: [
+              "Xây dựng quân đội",
+              "Độc lập dân tộc gắn CNXH",
+              "Đoàn kết quốc tế",
+              "Đấu tranh vũ trang",
+            ],
+            ans: 1,
+            exp: "Độc lập dân tộc gắn liền CNXH là tư tưởng xuyên suốt.",
+          },
+          {
+            q: "Lực lượng chủ yếu cách mạng VN theo HCM?",
+            opts: [
+              "Tư sản",
+              "Công - Nông liên minh",
+              "Tiểu tư sản",
+              "Quân đội",
+            ],
+            ans: 1,
+            exp: "Liên minh công nhân - nông dân là nền tảng cách mạng.",
+          },
+          {
+            q: "CNXH ở VN đảm bảo điều gì trước tiên?",
+            opts: [
+              "Công nghiệp hóa",
+              "Ấm no và hạnh phúc cho nhân dân",
+              "Xuất khẩu",
+              "Đô thị hóa",
+            ],
+            ans: 1,
+            exp: "Mục tiêu CNXH là đảm bảo ấm no, hạnh phúc cho mọi người.",
+          },
+          {
+            q: "Bạo lực cách mạng theo HCM là gì?",
+            opts: [
+              "Mục đích duy nhất",
+              "Cướp chính quyền",
+              "Phương tiện khi cần thiết",
+              "Không cần thiết",
+            ],
+            ans: 2,
+            exp: "Bạo lực là phương tiện khi mọi biện pháp hòa bình cạn kiệt.",
+          },
+        ],
+        3: [
+          {
+            q: "Phẩm chất đạo đức quan trọng nhất của người cách mạng?",
+            opts: [
+              "Dũng cảm",
+              "Trung với nước, hiếu với dân",
+              "Siêng năng",
+              "Khiêm tốn",
+            ],
+            ans: 1,
+            exp: '"Trung với nước, hiếu với dân" là phẩm chất hàng đầu.',
+          },
+          {
+            q: "HCM khẳng định: 'Đạo đức là gốc của...'",
+            opts: ["CNXH", "người cán bộ", "người cách mạng", "xã hội mới"],
+            ans: 2,
+            exp: '"Đạo đức là gốc của người cách mạng".',
+          },
+          {
+            q: "Kẻ thù nguy hiểm nhất của người cách mạng?",
+            opts: ["Thực dân", "Chủ nghĩa cá nhân", "Thiếu học", "Nghèo đói"],
+            ans: 1,
+            exp: "Chủ nghĩa cá nhân là kẻ thù hung ác nhất.",
+          },
+          {
+            q: "Rèn luyện đạo đức cách mạng là quá trình?",
+            opts: [
+              "Ngắn hạn",
+              "Thường xuyên suốt đời",
+              "Chỉ khi trẻ",
+              "Chỉ khi bị phê bình",
+            ],
+            ans: 1,
+            exp: "Rèn luyện đạo đức là công việc suốt cả cuộc đời.",
+          },
+          {
+            q: '"Chí công vô tư" có nghĩa là?',
+            opts: [
+              "Làm không lương",
+              "Đặt lợi ích công trên tư",
+              "Không gia đình",
+              "Sống độc thân",
+            ],
+            ans: 1,
+            exp: '"Chí công vô tư" là đặt lợi ích Đảng, nhân dân lên trên cá nhân.',
+          },
+        ],
+        4: [
+          {
+            q: "Bản chất Nhà nước VNDCCH theo HCM?",
+            opts: [
+              "Nhà nước tư sản",
+              "Nhà nước của dân, do dân, vì dân",
+              "Nhà nước công nhân",
+              "Dân chủ tư sản",
+            ],
+            ans: 1,
+            exp: "Nhà nước của dân, do dân làm chủ và vì lợi ích nhân dân.",
+          },
+          {
+            q: "Cán bộ nhà nước là gì của nhân dân?",
+            opts: [
+              "Người lãnh đạo tuyệt đối",
+              "Công bộc",
+              "Đại diện Đảng",
+              "Người giám sát",
+            ],
+            ans: 1,
+            exp: 'Cán bộ, công chức là "công bộc", "đầy tớ trung thành".',
+          },
+          {
+            q: "HCM đọc Tuyên ngôn Độc lập ngày nào?",
+            opts: ["19/8/1945", "2/9/1945", "19/12/1946", "30/4/1975"],
+            ans: 1,
+            exp: "Ngày 2/9/1945 tại Quảng trường Ba Đình.",
+          },
+          {
+            q: "Nguyên tắc tổ chức Đảng theo HCM?",
+            opts: [
+              "Dân chủ đại diện",
+              "Tập trung dân chủ",
+              "Đa nguyên",
+              "Chuyên quyền",
+            ],
+            ans: 1,
+            exp: "Tập trung dân chủ là nguyên tắc tổ chức cơ bản.",
+          },
+          {
+            q: "Chiến tranh nhân dân theo HCM là?",
+            opts: [
+              "Quân đội chính quy",
+              "Toàn dân đánh giặc",
+              "Du kích thuần túy",
+              "Nước ngoài",
+            ],
+            ans: 1,
+            exp: "Chiến tranh nhân dân: toàn dân, toàn diện, trường kỳ.",
+          },
+        ],
+      };
+
+      document.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

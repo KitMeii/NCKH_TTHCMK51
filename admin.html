@@ -1,0 +1,1552 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin - Giảng viên Ảo TTHCM</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <!-- mammoth + pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- SheetJS for Excel import -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+      body {
+        background: #f5f5f5;
+        padding-top: 70px;
+        padding-bottom: 20px;
+      }
+      .admin-wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+
+      /* Sidebar tabs */
+      .admin-layout {
+        display: flex;
+        gap: 16px;
+      }
+      .admin-sidebar {
+        width: 200px;
+        flex-shrink: 0;
+      }
+      .admin-content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .sidebar-nav {
+        background: white;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+      }
+      .sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 13px 16px;
+        cursor: pointer;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--gray-600);
+        transition: all 0.15s;
+        border-left: 3px solid transparent;
+      }
+      .sidebar-item:hover {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+      .sidebar-item.active {
+        background: var(--red-bg);
+        color: var(--red);
+        border-left-color: var(--red);
+      }
+      .sidebar-item i {
+        width: 16px;
+        text-align: center;
+      }
+      .sidebar-section {
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: var(--gray-400);
+        padding: 12px 16px 4px;
+        text-transform: uppercase;
+      }
+
+      /* Panels */
+      .panel {
+        display: none;
+      }
+      .panel.active {
+        display: block;
+      }
+
+      /* Stats overview */
+      .overview-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .ov-card {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        text-align: center;
+      }
+      .ov-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        margin: 0 auto 8px;
+      }
+      .ov-value {
+        font-family: "Oswald", sans-serif;
+        font-size: 1.8rem;
+        font-weight: 700;
+      }
+      .ov-label {
+        font-size: 0.7rem;
+        color: var(--gray-500);
+      }
+
+      /* Table */
+      .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+      }
+      .data-table th {
+        background: #f8f8f8;
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 700;
+        color: var(--gray-600);
+        border-bottom: 2px solid #eee;
+        white-space: nowrap;
+      }
+      .data-table td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #f0f0f0;
+        vertical-align: middle;
+      }
+      .data-table tr:hover td {
+        background: #fafafa;
+      }
+      .data-table-wrap {
+        background: white;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+      }
+
+      /* Badges */
+      .role-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.68rem;
+        font-weight: 700;
+      }
+      .role-badge.teacher {
+        background: #fff3e0;
+        color: #e65100;
+      }
+      .role-badge.student {
+        background: #e3f2fd;
+        color: #1565c0;
+      }
+      .role-badge.admin {
+        background: var(--red-bg);
+        color: var(--red);
+      }
+
+      /* Import zone */
+      .import-area {
+        border: 2px dashed #ddd;
+        border-radius: 12px;
+        padding: 28px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: white;
+        position: relative;
+        margin-bottom: 14px;
+      }
+      .import-area:hover {
+        border-color: var(--red);
+        background: var(--red-bg);
+      }
+      .import-area input {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* Search */
+      .search-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+      }
+      .search-input {
+        flex: 1;
+        min-width: 200px;
+        border: 1.5px solid #ddd;
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 0.82rem;
+        font-family: "Be Vietnam Pro", sans-serif;
+        outline: none;
+      }
+      .search-input:focus {
+        border-color: var(--red);
+      }
+
+      /* Toast */
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: #323232;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 10px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        z-index: 9999;
+        transform: translateY(100px);
+        transition: transform 0.3s;
+      }
+      .toast.show {
+        transform: translateY(0);
+      }
+      .toast.success {
+        background: #2e7d32;
+      }
+      .toast.error {
+        background: #c62828;
+      }
+
+      /* Progress bar */
+      .import-prog {
+        background: #f0f0f0;
+        border-radius: 6px;
+        height: 8px;
+        margin-top: 10px;
+        overflow: hidden;
+        display: none;
+      }
+      .import-prog-fill {
+        height: 100%;
+        background: var(--red);
+        border-radius: 6px;
+        transition: width 0.3s;
+      }
+
+      /* Question card */
+      .q-card {
+        background: white;
+        border-radius: 10px;
+        padding: 14px;
+        margin-bottom: 8px;
+        border: 1px solid #eee;
+      }
+      .q-card:hover {
+        border-color: #ffcdd2;
+      }
+      .q-chapter {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--red);
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .q-text {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--gray-800);
+        margin-bottom: 6px;
+      }
+      .q-opts {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .q-opt {
+        font-size: 0.7rem;
+        padding: 2px 8px;
+        border-radius: 10px;
+        background: var(--gray-100);
+        color: var(--gray-600);
+      }
+      .q-opt.correct {
+        background: #e8f5e9;
+        color: #2e7d32;
+        font-weight: 700;
+      }
+
+      /* Responsive */
+      @media (max-width: 640px) {
+        .admin-layout {
+          flex-direction: column;
+        }
+        .admin-sidebar {
+          width: 100%;
+        }
+        .overview-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-inner">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-badge"><i class="fas fa-shield-alt"></i>ADMIN</div>
+          <div class="logo-info">
+            <div class="logo-title">Quản trị hệ thống</div>
+            <div class="logo-sub" id="adminName">Giảng viên · TTHCM</div>
+          </div>
+        </a>
+        <div class="header-actions">
+          <a href="index.html" class="btn btn-outline btn-sm"
+            ><i class="fas fa-home"></i> Về trang chủ</a
+          >
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="admin-wrap">
+        <div class="admin-layout">
+          <!-- Sidebar -->
+          <div class="admin-sidebar">
+            <div class="sidebar-nav">
+              <div class="sidebar-section">Tổng quan</div>
+              <div class="sidebar-item active" onclick="showPanel('overview')">
+                <i class="fas fa-chart-pie"></i> Dashboard
+              </div>
+
+              <div class="sidebar-section">Nội dung</div>
+              <div class="sidebar-item" onclick="showPanel('questions')">
+                <i class="fas fa-question-circle"></i> Câu hỏi TN
+              </div>
+              <div class="sidebar-item" onclick="showPanel('oral')">
+                <i class="fas fa-comments"></i> Câu hỏi VĐ
+              </div>
+              <div class="sidebar-item" onclick="showPanel('import')">
+                <i class="fas fa-file-import"></i> Import dữ liệu
+              </div>
+
+              <div class="sidebar-section">Học viên</div>
+              <div class="sidebar-item" onclick="showPanel('students')">
+                <i class="fas fa-users"></i> Danh sách HV
+              </div>
+              <div class="sidebar-item" onclick="showPanel('results')">
+                <i class="fas fa-clipboard-list"></i> Kết quả thi
+              </div>
+
+              <div class="sidebar-section">Hệ thống</div>
+              <div class="sidebar-item" onclick="showPanel('settings')">
+                <i class="fas fa-cog"></i> Cài đặt
+              </div>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <div class="admin-content">
+            <!-- ======= DASHBOARD ======= -->
+            <div class="panel active" id="panel-overview">
+              <div class="page-title">📊 Dashboard tổng quan</div>
+              <div class="overview-grid">
+                <div class="ov-card">
+                  <div class="ov-icon" style="background: #ffebee">
+                    <i class="fas fa-users" style="color: var(--red)"></i>
+                  </div>
+                  <div
+                    class="ov-value"
+                    id="ov-students"
+                    style="color: var(--red)"
+                  >
+                    —
+                  </div>
+                  <div class="ov-label">Học viên</div>
+                </div>
+                <div class="ov-card">
+                  <div class="ov-icon" style="background: #e8f5e9">
+                    <i class="fas fa-question" style="color: #2e7d32"></i>
+                  </div>
+                  <div
+                    class="ov-value"
+                    id="ov-questions"
+                    style="color: #2e7d32"
+                  >
+                    —
+                  </div>
+                  <div class="ov-label">Câu hỏi TN</div>
+                </div>
+                <div class="ov-card">
+                  <div class="ov-icon" style="background: #e3f2fd">
+                    <i class="fas fa-file-alt" style="color: #1565c0"></i>
+                  </div>
+                  <div class="ov-value" id="ov-exams" style="color: #1565c0">
+                    —
+                  </div>
+                  <div class="ov-label">Bài thi đã làm</div>
+                </div>
+                <div class="ov-card">
+                  <div class="ov-icon" style="background: #fff8e1">
+                    <i class="fas fa-star" style="color: #f9a825"></i>
+                  </div>
+                  <div class="ov-value" id="ov-avg" style="color: #f9a825">
+                    —
+                  </div>
+                  <div class="ov-label">Điểm TB toàn hệ thống</div>
+                </div>
+              </div>
+
+              <!-- Top students -->
+              <div class="card">
+                <div class="card-title">
+                  <i class="fas fa-trophy"></i>Học viên nổi bật tuần này
+                </div>
+                <div id="topStudents">
+                  <div class="empty">
+                    <i class="fas fa-spinner fa-spin"></i>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Recent exams -->
+              <div class="card">
+                <div class="card-title">
+                  <i class="fas fa-clock"></i>Bài thi gần đây
+                </div>
+                <div id="recentExams">
+                  <div class="empty">
+                    <i class="fas fa-spinner fa-spin"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ======= QUESTIONS ======= -->
+            <div class="panel" id="panel-questions">
+              <div class="page-title">❓ Ngân hàng câu hỏi trắc nghiệm</div>
+              <div class="search-row">
+                <input
+                  class="search-input"
+                  id="qSearch"
+                  placeholder="🔍 Tìm câu hỏi..."
+                  oninput="filterQuestions()"
+                />
+                <select
+                  class="search-input"
+                  id="qChapter"
+                  style="flex: 0 0 200px"
+                  onchange="filterQuestions()"
+                >
+                  <option value="">Tất cả chương</option>
+                </select>
+                <button
+                  class="btn btn-red btn-sm"
+                  onclick="showPanel('import')"
+                >
+                  <i class="fas fa-plus"></i> Thêm câu hỏi
+                </button>
+              </div>
+              <div
+                style="
+                  font-size: 0.78rem;
+                  color: var(--gray-500);
+                  margin-bottom: 12px;
+                "
+                id="qCount"
+              >
+                Đang tải...
+              </div>
+              <div id="questionsList"></div>
+            </div>
+
+            <!-- ======= ORAL QUESTIONS ======= -->
+            <div class="panel" id="panel-oral">
+              <div class="page-title">🎤 Câu hỏi vấn đáp</div>
+              <div style="display: flex; gap: 8px; margin-bottom: 14px">
+                <button class="btn btn-red btn-sm" onclick="openAddOralModal()">
+                  <i class="fas fa-plus"></i> Thêm câu hỏi mới
+                </button>
+              </div>
+              <div id="oralList">
+                <div class="empty"><i class="fas fa-spinner fa-spin"></i></div>
+              </div>
+            </div>
+
+            <!-- ======= IMPORT ======= -->
+            <div class="panel" id="panel-import">
+              <div class="page-title">📥 Import dữ liệu câu hỏi</div>
+
+              <!-- Excel Import -->
+              <div class="card">
+                <div class="card-title">
+                  <i class="fas fa-file-excel" style="color: #2e7d32"></i>Import
+                  từ Excel (.xlsx) — Khuyên dùng
+                </div>
+                <div class="import-area" id="xlsxZone">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onchange="importExcel(event)"
+                  />
+                  <div
+                    style="font-size: 2rem; color: #2e7d32; margin-bottom: 8px"
+                  >
+                    <i class="fas fa-file-excel"></i>
+                  </div>
+                  <div style="font-weight: 700; margin-bottom: 4px">
+                    Kéo thả hoặc nhấn để chọn file Excel
+                  </div>
+                  <div style="font-size: 0.75rem; color: var(--gray-500)">
+                    Dùng đúng template đã tải về. Sheet "CÂU HỎI" sẽ được
+                    import.
+                  </div>
+                </div>
+                <div class="import-prog" id="xlsxProg">
+                  <div
+                    class="import-prog-fill"
+                    id="xlsxProgFill"
+                    style="width: 0%"
+                  ></div>
+                </div>
+                <div
+                  id="xlsxStatus"
+                  style="
+                    font-size: 0.78rem;
+                    color: var(--gray-500);
+                    margin-top: 6px;
+                  "
+                ></div>
+                <a
+                  href="../template_cau_hoi_TTHCM.xlsx"
+                  class="btn btn-outline btn-sm"
+                  style="margin-top: 10px"
+                  id="dlTemplate"
+                >
+                  <i class="fas fa-download"></i> Tải template Excel mẫu
+                </a>
+              </div>
+
+              <!-- Word Import -->
+              <div class="card">
+                <div class="card-title">
+                  <i class="fas fa-file-word" style="color: #1565c0"></i>Import
+                  từ Word (.docx)
+                </div>
+                <div class="import-area">
+                  <input
+                    type="file"
+                    accept=".docx"
+                    onchange="importWord(event)"
+                  />
+                  <div
+                    style="font-size: 2rem; color: #1565c0; margin-bottom: 8px"
+                  >
+                    <i class="fas fa-file-word"></i>
+                  </div>
+                  <div style="font-weight: 700; margin-bottom: 4px">
+                    Kéo thả file Word
+                  </div>
+                  <div style="font-size: 0.75rem; color: var(--gray-500)">
+                    Định dạng: "Câu X: [câu hỏi]" → A. → B. → C. → D. → ĐÁP ÁN:
+                    A
+                  </div>
+                </div>
+                <div style="margin-top: 10px">
+                  <input
+                    class="form-input"
+                    id="wordChapter"
+                    placeholder="Tên chương (VD: Chương 1 - Khái niệm cơ bản)"
+                  />
+                </div>
+                <div
+                  id="wordStatus"
+                  style="
+                    font-size: 0.78rem;
+                    color: var(--gray-500);
+                    margin-top: 6px;
+                  "
+                ></div>
+              </div>
+
+              <!-- Text paste -->
+              <div class="card">
+                <div class="card-title">
+                  <i class="fas fa-paste"></i>Dán văn bản trực tiếp
+                </div>
+                <textarea
+                  class="form-input"
+                  id="pasteArea"
+                  rows="8"
+                  placeholder="Dán nội dung câu hỏi vào đây...&#10;&#10;Câu 1: Tư tưởng HCM là gì?&#10;A. Chủ nghĩa Mác - Lênin&#10;B. Tư tưởng phương Đông&#10;C. Nho giáo&#10;D. Triết học Pháp&#10;ĐÁP ÁN: A&#10;Giải thích: Tư tưởng HCM vận dụng sáng tạo CN Mác-Lênin&#10;&#10;Câu 2: ..."
+                ></textarea>
+                <div style="display: flex; gap: 8px; margin-top: 10px">
+                  <input
+                    class="form-input"
+                    id="pasteChapter"
+                    placeholder="Tên chương"
+                    style="flex: 1"
+                  />
+                  <button class="btn btn-red" onclick="importPaste()">
+                    <i class="fas fa-magic"></i> Import
+                  </button>
+                </div>
+                <div
+                  id="pasteStatus"
+                  style="
+                    font-size: 0.78rem;
+                    color: var(--gray-500);
+                    margin-top: 6px;
+                  "
+                ></div>
+              </div>
+
+              <!-- Oral questions import -->
+              <div class="card">
+                <div class="card-title">
+                  <i class="fas fa-comments" style="color: #1565c0"></i>Import
+                  câu hỏi vấn đáp từ Excel
+                </div>
+                <div class="import-area">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onchange="importOralExcel(event)"
+                  />
+                  <div
+                    style="font-size: 2rem; color: #1565c0; margin-bottom: 8px"
+                  >
+                    <i class="fas fa-file-excel"></i>
+                  </div>
+                  <div style="font-weight: 700; margin-bottom: 4px">
+                    Kéo thả file Excel (Sheet "VẤN ĐÁP")
+                  </div>
+                  <div style="font-size: 0.75rem; color: var(--gray-500)">
+                    Dùng sheet VẤN ĐÁP trong template đã tải về
+                  </div>
+                </div>
+                <div
+                  id="oralImportStatus"
+                  style="
+                    font-size: 0.78rem;
+                    color: var(--gray-500);
+                    margin-top: 6px;
+                  "
+                ></div>
+              </div>
+            </div>
+
+            <!-- ======= STUDENTS ======= -->
+            <div class="panel" id="panel-students">
+              <div class="page-title">👥 Danh sách học viên</div>
+              <div class="search-row">
+                <input
+                  class="search-input"
+                  id="stuSearch"
+                  placeholder="🔍 Tìm theo tên, email, lớp..."
+                  oninput="filterStudents()"
+                />
+                <select
+                  class="search-input"
+                  id="stuFilter"
+                  style="flex: 0 0 160px"
+                  onchange="filterStudents()"
+                >
+                  <option value="">Tất cả vai trò</option>
+                  <option value="student">Học viên</option>
+                  <option value="teacher">Giảng viên</option>
+                </select>
+              </div>
+              <div class="data-table-wrap">
+                <div style="overflow-x: auto">
+                  <table class="data-table" id="studentsTable">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Họ tên</th>
+                        <th>Email</th>
+                        <th>Lớp/Khóa</th>
+                        <th>Streak</th>
+                        <th>Điểm TB</th>
+                        <th>Tiến độ</th>
+                        <th>Vai trò</th>
+                        <th>Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody id="studentRows">
+                      <tr>
+                        <td colspan="9" class="empty">Đang tải...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- ======= RESULTS ======= -->
+            <div class="panel" id="panel-results">
+              <div class="page-title">📋 Kết quả thi</div>
+              <div class="search-row">
+                <input
+                  class="search-input"
+                  id="resSearch"
+                  placeholder="🔍 Tìm theo tên học viên..."
+                />
+                <button
+                  class="btn btn-outline btn-sm"
+                  onclick="exportResults()"
+                >
+                  <i class="fas fa-download"></i> Xuất Excel
+                </button>
+              </div>
+              <div class="data-table-wrap">
+                <div style="overflow-x: auto">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>Học viên</th>
+                        <th>Ngày thi</th>
+                        <th>Đúng/Tổng</th>
+                        <th>Điểm</th>
+                        <th>Thời gian</th>
+                      </tr>
+                    </thead>
+                    <tbody id="resultsRows">
+                      <tr>
+                        <td colspan="6" class="empty">Đang tải...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- ======= SETTINGS ======= -->
+            <div class="panel" id="panel-settings">
+              <div class="page-title">⚙️ Cài đặt hệ thống</div>
+              <div class="card">
+                <div class="card-title">
+                  <i class="fas fa-key"></i>Nâng quyền học viên thành Giảng viên
+                </div>
+                <div
+                  style="
+                    font-size: 0.82rem;
+                    color: var(--gray-600);
+                    margin-bottom: 12px;
+                  "
+                >
+                  Nhập email học viên muốn cấp quyền giảng viên:
+                </div>
+                <div style="display: flex; gap: 8px">
+                  <input
+                    class="form-input"
+                    id="promoteEmail"
+                    placeholder="email@example.com"
+                    style="flex: 1"
+                  />
+                  <button class="btn btn-red" onclick="promoteUser('teacher')">
+                    <i class="fas fa-user-shield"></i> Cấp quyền GV
+                  </button>
+                  <button
+                    class="btn btn-outline"
+                    onclick="promoteUser('student')"
+                  >
+                    <i class="fas fa-user"></i> Về học viên
+                  </button>
+                </div>
+                <div
+                  id="promoteStatus"
+                  style="font-size: 0.78rem; margin-top: 8px"
+                ></div>
+              </div>
+              <div class="card">
+                <div class="card-title">
+                  <i class="fas fa-trash-alt" style="color: var(--red)"></i>Xóa
+                  dữ liệu
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap">
+                  <button
+                    class="btn btn-outline btn-sm"
+                    onclick="clearQuestions()"
+                    style="color: var(--red); border-color: var(--red)"
+                  >
+                    <i class="fas fa-trash"></i> Xóa tất cả câu hỏi TN
+                  </button>
+                  <button
+                    class="btn btn-outline btn-sm"
+                    onclick="clearOralQuestions()"
+                    style="color: var(--red); border-color: var(--red)"
+                  >
+                    <i class="fas fa-trash"></i> Xóa câu hỏi vấn đáp
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Add oral question modal -->
+    <div class="modal" id="oralModal">
+      <div class="modal-box">
+        <div class="modal-header">
+          <h3>Thêm câu hỏi vấn đáp</h3>
+          <button class="modal-close" onclick="closeModal('oralModal')">
+            ×
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label">Chương/Phần *</label
+            ><input
+              class="form-input"
+              id="oral-chapter"
+              placeholder="VD: Chương 1"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Câu hỏi *</label
+            ><textarea
+              class="form-input"
+              id="oral-q"
+              rows="3"
+              placeholder="Nhập câu hỏi vấn đáp..."
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Đáp án chuẩn *</label
+            ><textarea
+              class="form-input"
+              id="oral-a"
+              rows="4"
+              placeholder="Nhập đáp án chuẩn để AI tham khảo khi chấm..."
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Độ khó</label>
+            <select class="form-input" id="oral-diff">
+              <option value="1">1 - Dễ</option>
+              <option value="2" selected>2 - Trung bình</option>
+              <option value="3">3 - Khó</option>
+            </select>
+          </div>
+          <button class="btn btn-red btn-full" onclick="saveOralQuestion()">
+            <i class="fas fa-save"></i> Lưu câu hỏi
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      let currentUser = null;
+      let allStudents = [],
+        allQuestions = [],
+        allOralQ = [],
+        allResults = [];
+
+      // ============================================================
+      async function init() {
+        currentUser = await requireAuth();
+        if (!currentUser) return;
+
+        const profile = await getProfile(currentUser.id);
+        if (!profile || !["teacher", "admin"].includes(profile.role)) {
+          alert(
+            "⚠️ Bạn không có quyền truy cập trang Admin!\nChỉ Giảng viên mới được vào đây.",
+          );
+          window.location = "index.html";
+          return;
+        }
+        document.getElementById("adminName").textContent =
+          `${profile.name} · Giảng viên`;
+        loadOverview();
+        loadStudents();
+        loadQuestions();
+        loadOralQuestions();
+        loadResults();
+      }
+
+      // ============================================================
+      // PANEL SWITCHING
+      // ============================================================
+      function showPanel(name) {
+        document
+          .querySelectorAll(".panel")
+          .forEach((p) => p.classList.remove("active"));
+        document
+          .querySelectorAll(".sidebar-item")
+          .forEach((i) => i.classList.remove("active"));
+        document.getElementById(`panel-${name}`).classList.add("active");
+        event?.target?.closest(".sidebar-item")?.classList.add("active");
+      }
+
+      // ============================================================
+      // OVERVIEW
+      // ============================================================
+      async function loadOverview() {
+        const [{ count: stuCount }, { count: qCount }, { data: exams }] =
+          await Promise.all([
+            sb
+              .from("profiles")
+              .select("*", { count: "exact", head: true })
+              .eq("role", "student"),
+            sb.from("questions").select("*", { count: "exact", head: true }),
+            sb
+              .from("exam_results")
+              .select("score,user_id,created_at,profiles(name)")
+              .order("created_at", { ascending: false })
+              .limit(10),
+          ]);
+
+        document.getElementById("ov-students").textContent = stuCount || 0;
+        document.getElementById("ov-questions").textContent = qCount || 0;
+        document.getElementById("ov-exams").textContent = exams?.length || 0;
+
+        if (exams?.length > 0) {
+          const avg =
+            exams.reduce((s, e) => s + parseFloat(e.score), 0) / exams.length;
+          document.getElementById("ov-avg").textContent = avg.toFixed(1);
+        }
+
+        // Recent exams table
+        const re = document.getElementById("recentExams");
+        if (!exams?.length) {
+          re.innerHTML = '<div class="empty">Chưa có bài thi</div>';
+          return;
+        }
+        re.innerHTML = exams
+          .map(
+            (e) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f5f5;">
+      <div>
+        <div style="font-weight:600;font-size:0.82rem;">${e.profiles?.name || "Học viên"}</div>
+        <div style="font-size:0.7rem;color:var(--gray-400);">${formatDate(e.created_at)}</div>
+      </div>
+      <div style="font-family:'Oswald',sans-serif;font-size:1.2rem;font-weight:700;color:${parseFloat(e.score) >= 5 ? "#2e7d32" : "var(--red)"};">${parseFloat(e.score).toFixed(1)}</div>
+    </div>`,
+          )
+          .join("");
+
+        // Top students
+        const { data: tops } = await sb
+          .from("profiles")
+          .select("name,avg_score,streak,progress")
+          .eq("role", "student")
+          .order("avg_score", { ascending: false })
+          .limit(5);
+        const ts = document.getElementById("topStudents");
+        if (!tops?.length) {
+          ts.innerHTML = '<div class="empty">Chưa có dữ liệu</div>';
+          return;
+        }
+        ts.innerHTML = tops
+          .map(
+            (s, i) => `
+    <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #f5f5f5;">
+      <div style="width:24px;height:24px;border-radius:50%;background:${["#f9a825", "#bdbdbd", "#cd7f32", "var(--gray-200)", "var(--gray-200)"][i]};display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:white;">${i + 1}</div>
+      <div style="flex:1;font-weight:600;font-size:0.82rem;">${s.name}</div>
+      <div style="font-size:0.7rem;color:var(--gray-500);">🔥${s.streak}d · ${s.progress || 0}%</div>
+      <div style="font-family:'Oswald',sans-serif;font-weight:700;color:var(--red);">${parseFloat(s.avg_score || 0).toFixed(1)}</div>
+    </div>`,
+          )
+          .join("");
+      }
+
+      // ============================================================
+      // STUDENTS
+      // ============================================================
+      async function loadStudents() {
+        const { data } = await sb
+          .from("profiles")
+          .select("*")
+          .order("created_at", { ascending: false });
+        allStudents = data || [];
+        renderStudents(allStudents);
+      }
+
+      function renderStudents(list) {
+        const tbody = document.getElementById("studentRows");
+        if (!list.length) {
+          tbody.innerHTML =
+            '<tr><td colspan="9" class="empty">Không có học viên</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list
+          .map(
+            (s, i) => `
+    <tr>
+      <td style="color:var(--gray-400);font-size:0.75rem;">${i + 1}</td>
+      <td><div style="font-weight:600;">${s.name || "—"}</div></td>
+      <td style="font-size:0.75rem;color:var(--gray-500);">${s.email || "—"}</td>
+      <td style="font-size:0.75rem;">${[s.course, s.class_name].filter(Boolean).join(" / ") || "—"}</td>
+      <td style="text-align:center;font-weight:700;color:var(--red);">${s.streak || 0}🔥</td>
+      <td style="text-align:center;font-weight:700;color:#2e7d32;">${parseFloat(s.avg_score || 0).toFixed(1)}</td>
+      <td>
+        <div style="font-size:0.72rem;margin-bottom:2px;">${s.progress || 0}%</div>
+        <div style="height:4px;background:#f0f0f0;border-radius:2px;"><div style="height:100%;width:${s.progress || 0}%;background:var(--red);border-radius:2px;"></div></div>
+      </td>
+      <td><span class="role-badge ${s.role || "student"}">${s.role === "teacher" ? "Giảng viên" : s.role === "admin" ? "Admin" : "Học viên"}</span></td>
+      <td>
+        <button class="btn btn-sm btn-outline" onclick="viewStudent('${s.id}')" style="padding:4px 8px;font-size:0.7rem;"><i class="fas fa-eye"></i></button>
+      </td>
+    </tr>`,
+          )
+          .join("");
+      }
+
+      function filterStudents() {
+        const q = document.getElementById("stuSearch").value.toLowerCase();
+        const r = document.getElementById("stuFilter").value;
+        const filtered = allStudents.filter(
+          (s) =>
+            (!q ||
+              (s.name || "").toLowerCase().includes(q) ||
+              (s.email || "").toLowerCase().includes(q) ||
+              (s.class_name || "").toLowerCase().includes(q)) &&
+            (!r || s.role === r),
+        );
+        renderStudents(filtered);
+      }
+
+      async function viewStudent(id) {
+        const s = allStudents.find((x) => x.id === id);
+        if (!s) return;
+        const { data: exams } = await sb
+          .from("exam_results")
+          .select("*")
+          .eq("user_id", id)
+          .order("created_at", { ascending: false })
+          .limit(5);
+        let info = `Học viên: ${s.name}\nEmail: ${s.email || "—"}\nLớp: ${s.class_name || "—"} · ${s.course || "—"}\nStreak: ${s.streak || 0} ngày\nĐiểm TB: ${parseFloat(s.avg_score || 0).toFixed(1)}\nTiến độ: ${s.progress || 0}%\n\nBài thi gần đây:`;
+        if (exams?.length)
+          info +=
+            "\n" +
+            exams
+              .map(
+                (e) =>
+                  `  • ${formatDate(e.created_at)}: ${e.correct}/${e.total} câu — ${parseFloat(e.score).toFixed(1)} điểm`,
+              )
+              .join("\n");
+        else info += "\nChưa có bài thi";
+        alert(info);
+      }
+
+      // ============================================================
+      // QUESTIONS
+      // ============================================================
+      async function loadQuestions() {
+        const { data } = await sb
+          .from("questions")
+          .select("*")
+          .order("chapter")
+          .order("created_at", { ascending: false });
+        allQuestions = data || [];
+        // Populate chapter filter
+        const chapters = [...new Set(allQuestions.map((q) => q.chapter))];
+        const sel = document.getElementById("qChapter");
+        sel.innerHTML =
+          '<option value="">Tất cả chương</option>' +
+          chapters.map((c) => `<option value="${c}">${c}</option>`).join("");
+        renderQuestions(allQuestions);
+      }
+
+      function renderQuestions(list) {
+        document.getElementById("qCount").textContent =
+          `${list.length} câu hỏi`;
+        const el = document.getElementById("questionsList");
+        if (!list.length) {
+          el.innerHTML =
+            '<div class="empty"><i class="fas fa-inbox"></i><br>Chưa có câu hỏi. Nhấn Import để thêm.</div>';
+          return;
+        }
+        el.innerHTML =
+          list
+            .slice(0, 50)
+            .map((q, i) => {
+              const opts = [
+                q.option_a,
+                q.option_b,
+                q.option_c,
+                q.option_d,
+              ].filter(Boolean);
+              const letters = ["A", "B", "C", "D"];
+              return `<div class="q-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="flex:1;">
+          <div class="q-chapter">${q.chapter}</div>
+          <div class="q-text">${i + 1}. ${q.question}</div>
+          <div class="q-opts">${opts.map((o, j) => `<span class="q-opt ${j === q.correct_answer ? "correct" : ""}">${letters[j]}. ${o}</span>`).join("")}</div>
+          ${q.explanation ? `<div style="font-size:0.72rem;color:var(--gray-500);margin-top:4px;">💡 ${q.explanation}</div>` : ""}
+        </div>
+        <button onclick="deleteQuestion('${q.id}')" style="background:none;border:none;cursor:pointer;color:var(--gray-400);padding:4px;" title="Xóa"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>`;
+            })
+            .join("") +
+          (list.length > 50
+            ? `<div style="text-align:center;padding:12px;font-size:0.78rem;color:var(--gray-400);">Hiển thị 50/${list.length} câu. Import thêm để bổ sung.</div>`
+            : "");
+      }
+
+      function filterQuestions() {
+        const q = document.getElementById("qSearch").value.toLowerCase();
+        const ch = document.getElementById("qChapter").value;
+        renderQuestions(
+          allQuestions.filter(
+            (x) =>
+              (!q || x.question.toLowerCase().includes(q)) &&
+              (!ch || x.chapter === ch),
+          ),
+        );
+      }
+
+      async function deleteQuestion(id) {
+        if (!confirm("Xóa câu hỏi này?")) return;
+        await sb.from("questions").delete().eq("id", id);
+        showToast("Đã xóa câu hỏi", "success");
+        loadQuestions();
+      }
+
+      // ============================================================
+      // ORAL QUESTIONS
+      // ============================================================
+      async function loadOralQuestions() {
+        const { data } = await sb
+          .from("oral_questions")
+          .select("*")
+          .order("created_at", { ascending: false });
+        allOralQ = data || [];
+        const el = document.getElementById("oralList");
+        if (!allOralQ.length) {
+          el.innerHTML =
+            '<div class="empty"><i class="fas fa-comments"></i><br>Chưa có câu hỏi vấn đáp</div>';
+          return;
+        }
+        el.innerHTML = allOralQ
+          .map(
+            (q, i) => `
+    <div class="q-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+        <div style="flex:1;">
+          <div class="q-chapter">${q.chapter} · Độ khó: ${"⭐".repeat(q.difficulty || 1)}</div>
+          <div class="q-text">${i + 1}. ${q.question}</div>
+          <div style="font-size:0.75rem;color:var(--gray-600);margin-top:6px;background:var(--gray-50);padding:8px;border-radius:6px;"><strong>Đáp án chuẩn:</strong> ${q.expected_answer || "—"}</div>
+        </div>
+        <button onclick="deleteOralQ('${q.id}')" style="background:none;border:none;cursor:pointer;color:var(--gray-400);padding:4px;"><i class="fas fa-trash"></i></button>
+      </div>
+    </div>`,
+          )
+          .join("");
+      }
+
+      function openAddOralModal() {
+        openModal("oralModal");
+      }
+
+      async function saveOralQuestion() {
+        const chapter = document.getElementById("oral-chapter").value.trim();
+        const question = document.getElementById("oral-q").value.trim();
+        const expected = document.getElementById("oral-a").value.trim();
+        const diff = parseInt(document.getElementById("oral-diff").value);
+        if (!chapter || !question || !expected)
+          return alert("Vui lòng điền đủ thông tin!");
+        const { error } = await sb
+          .from("oral_questions")
+          .insert([
+            {
+              user_id: currentUser.id,
+              chapter,
+              question,
+              expected_answer: expected,
+              difficulty: diff,
+            },
+          ]);
+        if (error) {
+          showToast("Lỗi: " + error.message, "error");
+          return;
+        }
+        showToast("Đã thêm câu hỏi vấn đáp!", "success");
+        closeModal("oralModal");
+        loadOralQuestions();
+      }
+
+      async function deleteOralQ(id) {
+        if (!confirm("Xóa câu hỏi vấn đáp này?")) return;
+        await sb.from("oral_questions").delete().eq("id", id);
+        showToast("Đã xóa", "success");
+        loadOralQuestions();
+      }
+
+      // ============================================================
+      // RESULTS
+      // ============================================================
+      async function loadResults() {
+        const { data } = await sb
+          .from("exam_results")
+          .select("*, profiles(name,class_name)")
+          .order("created_at", { ascending: false })
+          .limit(100);
+        allResults = data || [];
+        renderResults(allResults);
+      }
+
+      function renderResults(list) {
+        const tbody = document.getElementById("resultsRows");
+        if (!list.length) {
+          tbody.innerHTML =
+            '<tr><td colspan="6" class="empty">Chưa có kết quả thi</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list
+          .map(
+            (r, i) => `
+    <tr>
+      <td style="color:var(--gray-400);font-size:0.75rem;">${i + 1}</td>
+      <td><div style="font-weight:600;font-size:0.82rem;">${r.profiles?.name || "—"}</div><div style="font-size:0.7rem;color:var(--gray-400);">${r.profiles?.class_name || "—"}</div></td>
+      <td style="font-size:0.75rem;">${formatDate(r.created_at)}</td>
+      <td style="text-align:center;">${r.correct}/${r.total}</td>
+      <td style="text-align:center;font-family:'Oswald',sans-serif;font-size:1.1rem;font-weight:700;color:${parseFloat(r.score) >= 5 ? "#2e7d32" : "var(--red)"};">${parseFloat(r.score).toFixed(1)}</td>
+      <td style="font-size:0.75rem;">${formatTime(r.time_spent_seconds || 0)}</td>
+    </tr>`,
+          )
+          .join("");
+      }
+
+      function exportResults() {
+        if (!allResults.length) return alert("Không có dữ liệu để xuất!");
+        const rows = [
+          [
+            "#",
+            "Học viên",
+            "Lớp",
+            "Ngày thi",
+            "Đúng",
+            "Tổng",
+            "Điểm",
+            "Thời gian",
+          ],
+        ];
+        allResults.forEach((r, i) =>
+          rows.push([
+            i + 1,
+            r.profiles?.name || "—",
+            r.profiles?.class_name || "—",
+            formatDate(r.created_at),
+            r.correct,
+            r.total,
+            parseFloat(r.score).toFixed(1),
+            formatTime(r.time_spent_seconds || 0),
+          ]),
+        );
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, "Kết quả thi");
+        XLSX.writeFile(
+          wb,
+          `KetQua_TTHCM_${new Date().toLocaleDateString("vi")}.xlsx`,
+        );
+        showToast("Đã xuất file Excel!", "success");
+      }
+
+      // ============================================================
+      // IMPORT EXCEL (questions)
+      // ============================================================
+      async function importExcel(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const prog = document.getElementById("xlsxProg");
+        const fill = document.getElementById("xlsxProgFill");
+        const status = document.getElementById("xlsxStatus");
+        prog.style.display = "block";
+        fill.style.width = "10%";
+        status.textContent = "Đang đọc file...";
+
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer);
+        // Find sheet "CÂU HỎI"
+        const wsName =
+          wb.SheetNames.find((n) => n.includes("CÂU HỎI")) || wb.SheetNames[0];
+        const ws = wb.Sheets[wsName];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+        fill.style.width = "40%";
+        status.textContent = `Tìm thấy ${rows.length} dòng, đang xử lý...`;
+
+        const questions = rows
+          .filter((r) => r.cau_hoi || r["Câu hỏi"])
+          .map((r) => ({
+            user_id: currentUser.id,
+            chapter: r.chuong || r["Tên chương"] || "Chương mới",
+            question: r.cau_hoi || r["Câu hỏi"],
+            option_a: r.lua_chon_a || r["A. Lựa chọn A"] || "",
+            option_b: r.lua_chon_b || r["B. Lựa chọn B"] || "",
+            option_c: r.lua_chon_c || r["C. Lựa chọn C"] || "",
+            option_d: r.lua_chon_d || r["D. Lựa chọn D"] || "",
+            correct_answer:
+              parseInt(r.dap_an_dung ?? r["Đáp án (0/1/2/3)"] ?? 0) || 0,
+            explanation: r.giai_thich || r["Giải thích"] || "",
+          }))
+          .filter((q) => q.question);
+
+        fill.style.width = "70%";
+        // Insert in batches of 50
+        let inserted = 0;
+        for (let i = 0; i < questions.length; i += 50) {
+          const batch = questions.slice(i, i + 50);
+          const { error } = await sb.from("questions").insert(batch);
+          if (!error) inserted += batch.length;
+          fill.style.width = 70 + (i / questions.length) * 30 + "%";
+        }
+
+        fill.style.width = "100%";
+        status.textContent = `✅ Đã import ${inserted}/${questions.length} câu hỏi thành công!`;
+        status.style.color = "#2e7d32";
+        showToast(`Import thành công ${inserted} câu!`, "success");
+        loadQuestions();
+        loadOverview();
+      }
+
+      async function importOralExcel(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const buffer = await file.arrayBuffer();
+        const wb = XLSX.read(buffer);
+        const wsName =
+          wb.SheetNames.find((n) => n.includes("VẤN ĐÁP")) || wb.SheetNames[0];
+        const ws = wb.Sheets[wsName];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+        const oqs = rows
+          .filter((r) => r.cau_hoi || r["Câu hỏi vấn đáp"])
+          .map((r) => ({
+            user_id: currentUser.id,
+            chapter: r.chuong || r["Chương/Phần"] || "Chung",
+            question: r.cau_hoi || r["Câu hỏi vấn đáp"],
+            expected_answer: r.dap_an_chuan || r["Đáp án chuẩn"] || "",
+            difficulty: parseInt(r.do_kho || r["Độ khó (1/2/3)"] || 2),
+          }))
+          .filter((q) => q.question);
+
+        const { error } = await sb.from("oral_questions").insert(oqs);
+        const status = document.getElementById("oralImportStatus");
+        if (error) {
+          status.textContent = "❌ Lỗi: " + error.message;
+          return;
+        }
+        status.textContent = `✅ Đã import ${oqs.length} câu hỏi vấn đáp!`;
+        status.style.color = "#2e7d32";
+        showToast(`Import ${oqs.length} câu vấn đáp!`, "success");
+        loadOralQuestions();
+      }
+
+      // ============================================================
+      // IMPORT WORD
+      // ============================================================
+      async function importWord(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const chapter =
+          document.getElementById("wordChapter").value.trim() || "Chương mới";
+        const status = document.getElementById("wordStatus");
+        status.textContent = "Đang đọc file Word...";
+
+        const buffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer: buffer });
+        const text = result.value;
+        const parsed = parseQText(text);
+
+        if (!parsed.length) {
+          status.textContent = "❌ Không tìm được câu hỏi. Kiểm tra định dạng!";
+          return;
+        }
+        status.textContent = `Tìm thấy ${parsed.length} câu, đang lưu...`;
+
+        const rows = parsed.map((q) => ({
+          user_id: currentUser.id,
+          chapter,
+          ...q,
+        }));
+        const { error } = await sb.from("questions").insert(rows);
+        if (error) {
+          status.textContent = "❌ Lỗi: " + error.message;
+          return;
+        }
+        status.textContent = `✅ Import thành công ${parsed.length} câu hỏi vào "${chapter}"!`;
+        status.style.color = "#2e7d32";
+        showToast(`Import ${parsed.length} câu!`, "success");
+        loadQuestions();
+      }
+
+      async function importPaste() {
+        const text = document.getElementById("pasteArea").value.trim();
+        const chapter =
+          document.getElementById("pasteChapter").value.trim() || "Chương mới";
+        const status = document.getElementById("pasteStatus");
+        if (!text) return alert("Vui lòng dán nội dung câu hỏi!");
+
+        const parsed = parseQText(text);
+        if (!parsed.length) {
+          status.textContent = "❌ Không tìm được câu hỏi. Kiểm tra định dạng!";
+          return;
+        }
+        const rows = parsed.map((q) => ({
+          user_id: currentUser.id,
+          chapter,
+          ...q,
+        }));
+        const { error } = await sb.from("questions").insert(rows);
+        if (error) {
+          status.textContent = "❌ Lỗi: " + error.message;
+          return;
+        }
+        status.textContent = `✅ Import thành công ${parsed.length} câu hỏi vào "${chapter}"!`;
+        status.style.color = "#2e7d32";
+        document.getElementById("pasteArea").value = "";
+        showToast(`Import ${parsed.length} câu!`, "success");
+        loadQuestions();
+      }
+
+      function parseQText(text) {
+        const results = [];
+        text = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+        const blocks = text
+          .split(/(?=Câu\s*\d+\s*[:\.]\s*)/i)
+          .filter((b) => b.trim());
+        for (const block of blocks) {
+          const lines = block
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean);
+          if (lines.length < 3) continue;
+          const qText = lines[0].replace(/^Câu\s*\d+\s*[:\.]\s*/i, "").trim();
+          if (!qText) continue;
+          const opts = [];
+          for (const line of lines.slice(1)) {
+            const m = line.match(/^[ABCDabcd]\s*[\.:\)]\s*(.+)/);
+            if (m) opts.push(m[1].trim());
+            if (opts.length === 4) break;
+          }
+          if (opts.length < 2) continue;
+          let ans = 0;
+          const ansLine = lines.find((l) => /đáp án|answer/i.test(l));
+          if (ansLine) {
+            const m = ansLine.match(/[ABCD]/i);
+            if (m) ans = ["A", "B", "C", "D"].indexOf(m[0].toUpperCase());
+          }
+          const expLine = lines.find((l) => /giải thích|note/i.test(l));
+          const exp = expLine
+            ? expLine.replace(/^(giải thích|note)\s*[:\.]\s*/i, "")
+            : "";
+          results.push({
+            question: qText,
+            option_a: opts[0] || "",
+            option_b: opts[1] || "",
+            option_c: opts[2] || "",
+            option_d: opts[3] || "",
+            correct_answer: Math.max(0, ans),
+            explanation: exp,
+          });
+        }
+        return results;
+      }
+
+      // ============================================================
+      // SETTINGS
+      // ============================================================
+      async function promoteUser(role) {
+        const email = document.getElementById("promoteEmail").value.trim();
+        const status = document.getElementById("promoteStatus");
+        if (!email) return alert("Nhập email!");
+        // Find user by email in profiles
+        const { data, error } = await sb
+          .from("profiles")
+          .update({ role })
+          .eq("email", email)
+          .select();
+        if (error || !data?.length) {
+          status.textContent =
+            "❌ Không tìm thấy tài khoản với email này. Đảm bảo học viên đã đăng ký.";
+          status.style.color = "var(--red)";
+          return;
+        }
+        status.textContent = `✅ Đã cập nhật ${email} → ${role === "teacher" ? "Giảng viên" : "Học viên"}`;
+        status.style.color = "#2e7d32";
+        showToast("Cập nhật quyền thành công!", "success");
+        loadStudents();
+      }
+
+      async function clearQuestions() {
+        if (!confirm("⚠️ Xóa TẤT CẢ câu hỏi trắc nghiệm? Không thể hoàn tác!"))
+          return;
+        await sb
+          .from("questions")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+        showToast("Đã xóa tất cả câu hỏi TN", "success");
+        loadQuestions();
+      }
+
+      async function clearOralQuestions() {
+        if (!confirm("⚠️ Xóa TẤT CẢ câu hỏi vấn đáp?")) return;
+        await sb
+          .from("oral_questions")
+          .delete()
+          .neq("id", "00000000-0000-0000-0000-000000000000");
+        showToast("Đã xóa câu hỏi vấn đáp", "success");
+        loadOralQuestions();
+      }
+
+      // ============================================================
+      // HELPERS
+      // ============================================================
+      function showToast(msg, type = "") {
+        const t = document.getElementById("toast");
+        t.textContent = msg;
+        t.className = `toast ${type} show`;
+        setTimeout(() => t.classList.remove("show"), 3000);
+      }
+      function openModal(id) {
+        document.getElementById(id).classList.add("show");
+      }
+      function closeModal(id) {
+        document.getElementById(id).classList.remove("show");
+      }
+
+      document.addEventListener("DOMContentLoaded", init);
+    </script>
+  </body>
+</html>

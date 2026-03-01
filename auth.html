@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Đăng nhập - Giảng viên Ảo TTHCM</title>
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-config.js"></script>
+    <style>
+      body {
+        padding: 0;
+        background: linear-gradient(
+          160deg,
+          #b71c1c 0%,
+          #c62828 40%,
+          #e53935 100%
+        );
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      .auth-wrap {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .auth-box {
+        background: white;
+        border-radius: 20px;
+        width: 100%;
+        max-width: 420px;
+        overflow: hidden;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+      .auth-hero {
+        background: linear-gradient(135deg, #8b0000, #c62828);
+        padding: 28px 24px;
+        text-align: center;
+        color: white;
+      }
+      .hero-badge {
+        width: 64px;
+        height: 64px;
+        background: rgba(255, 255, 255, 0.15);
+        border: 2px solid #f9a825;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 14px;
+      }
+      .hero-badge i {
+        color: #f9a825;
+        font-size: 1.4rem;
+      }
+      .hero-badge span {
+        font-weight: 800;
+        font-size: 13px;
+        letter-spacing: 1px;
+      }
+      .auth-hero h2 {
+        font-family: "Oswald", sans-serif;
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      .auth-hero p {
+        font-size: 0.75rem;
+        opacity: 0.8;
+        margin-top: 4px;
+      }
+      .tab-bar {
+        display: flex;
+        border-bottom: 1px solid #f0f0f0;
+      }
+      .tab {
+        flex: 1;
+        padding: 14px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 0.875rem;
+        cursor: pointer;
+        color: var(--gray-400);
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s;
+      }
+      .tab.active {
+        color: var(--red);
+        border-bottom-color: var(--red);
+      }
+      .auth-body {
+        padding: 24px;
+      }
+      .alert {
+        padding: 10px 14px;
+        border-radius: var(--radius-sm);
+        font-size: 0.82rem;
+        margin-bottom: 16px;
+        display: none;
+      }
+      .alert.error {
+        background: #ffebee;
+        color: #c62828;
+        border: 1px solid #ffcdd2;
+      }
+      .alert.success {
+        background: #e8f5e9;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+      }
+      .auth-footer {
+        text-align: center;
+        padding: 0 24px 20px;
+        font-size: 0.75rem;
+        color: var(--gray-400);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="auth-wrap">
+      <div class="auth-box">
+        <!-- Hero -->
+        <div class="auth-hero">
+          <div class="hero-badge">
+            <i class="fas fa-star"></i><span>MTA</span>
+          </div>
+          <h2>HỆ THỐNG GIẢNG VIÊN ẢO TTHCM</h2>
+          <p>Học viện Kỹ thuật Quân sự · Khoa Điện - Điện tử</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tab-bar">
+          <div class="tab active" id="loginTab" onclick="switchTab('login')">
+            <i class="fas fa-sign-in-alt"></i> Đăng nhập
+          </div>
+          <div class="tab" id="registerTab" onclick="switchTab('register')">
+            <i class="fas fa-user-plus"></i> Đăng ký
+          </div>
+        </div>
+
+        <!-- Alert -->
+        <div style="padding: 0 24px">
+          <div class="alert" id="alertBox"></div>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <div class="auth-body" id="loginForm">
+          <div class="form-group">
+            <label class="form-label"
+              ><i
+                class="fas fa-envelope"
+                style="color: var(--red); margin-right: 5px"
+              ></i
+              >Email</label
+            >
+            <input
+              class="form-input"
+              id="loginEmail"
+              type="email"
+              placeholder="email@example.com"
+              autocomplete="email"
+            />
+          </div>
+          <div class="form-group" style="position: relative">
+            <label class="form-label"
+              ><i
+                class="fas fa-lock"
+                style="color: var(--red); margin-right: 5px"
+              ></i
+              >Mật khẩu</label
+            >
+            <input
+              class="form-input"
+              id="loginPass"
+              type="password"
+              placeholder="••••••••"
+              autocomplete="current-password"
+            />
+            <span
+              onclick="togglePwd('loginPass')"
+              style="
+                position: absolute;
+                right: 14px;
+                bottom: 11px;
+                cursor: pointer;
+                color: var(--gray-400);
+              "
+              ><i class="fas fa-eye"></i
+            ></span>
+          </div>
+          <button
+            class="btn btn-red btn-full"
+            style="padding: 13px; font-size: 0.9rem"
+            id="loginBtn"
+            onclick="doLogin()"
+          >
+            <i class="fas fa-sign-in-alt"></i> Đăng nhập
+          </button>
+          <div style="text-align: center; margin-top: 14px">
+            <a
+              href="#"
+              style="
+                font-size: 0.78rem;
+                color: var(--red);
+                text-decoration: none;
+              "
+              onclick="switchTab('forgot')"
+              >Quên mật khẩu?</a
+            >
+          </div>
+        </div>
+
+        <!-- REGISTER FORM -->
+        <div class="auth-body" id="registerForm" style="display: none">
+          <div class="form-group">
+            <label class="form-label"
+              ><i
+                class="fas fa-user-soldier"
+                style="color: var(--red); margin-right: 5px"
+              ></i
+              >Họ tên đầy đủ</label
+            >
+            <input
+              class="form-input"
+              id="regName"
+              type="text"
+              placeholder="NGUYỄN VĂN A"
+              style="text-transform: uppercase"
+            />
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px">
+            <div class="form-group">
+              <label class="form-label">Khóa học</label>
+              <input
+                class="form-input"
+                id="regCourse"
+                type="text"
+                placeholder="VD: Khóa S8"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Lớp</label>
+              <input
+                class="form-input"
+                id="regClass"
+                type="text"
+                placeholder="VD: KT2"
+              />
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label"
+              ><i
+                class="fas fa-envelope"
+                style="color: var(--red); margin-right: 5px"
+              ></i
+              >Email</label
+            >
+            <input
+              class="form-input"
+              id="regEmail"
+              type="email"
+              placeholder="email@example.com"
+            />
+          </div>
+          <div class="form-group" style="position: relative">
+            <label class="form-label"
+              ><i
+                class="fas fa-lock"
+                style="color: var(--red); margin-right: 5px"
+              ></i
+              >Mật khẩu</label
+            >
+            <input
+              class="form-input"
+              id="regPass"
+              type="password"
+              placeholder="Tối thiểu 6 ký tự"
+            />
+            <span
+              onclick="togglePwd('regPass')"
+              style="
+                position: absolute;
+                right: 14px;
+                bottom: 11px;
+                cursor: pointer;
+                color: var(--gray-400);
+              "
+              ><i class="fas fa-eye"></i
+            ></span>
+          </div>
+          <button
+            class="btn btn-red btn-full"
+            style="padding: 13px; font-size: 0.9rem"
+            id="regBtn"
+            onclick="doRegister()"
+          >
+            <i class="fas fa-user-plus"></i> Tạo tài khoản
+          </button>
+        </div>
+
+        <!-- FORGOT FORM -->
+        <div class="auth-body" id="forgotForm" style="display: none">
+          <p
+            style="
+              font-size: 0.82rem;
+              color: var(--gray-600);
+              margin-bottom: 16px;
+            "
+          >
+            Nhập email đã đăng ký. Chúng tôi sẽ gửi link đặt lại mật khẩu.
+          </p>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input
+              class="form-input"
+              id="forgotEmail"
+              type="email"
+              placeholder="email@example.com"
+            />
+          </div>
+          <button
+            class="btn btn-red btn-full"
+            style="padding: 13px"
+            onclick="doForgot()"
+          >
+            <i class="fas fa-paper-plane"></i> Gửi link đặt lại
+          </button>
+          <div style="text-align: center; margin-top: 12px">
+            <a
+              href="#"
+              style="
+                font-size: 0.78rem;
+                color: var(--gray-500);
+                text-decoration: none;
+              "
+              onclick="switchTab('login')"
+              >← Quay lại đăng nhập</a
+            >
+          </div>
+        </div>
+
+        <div class="auth-footer">© 2026 · HVKTQS · Phiên bản 1.0.0</div>
+      </div>
+    </div>
+
+    <script>
+      // Nếu đã đăng nhập → vào thẳng trang chủ
+      (async () => {
+        const {
+          data: { session },
+        } = await sb.auth.getSession();
+        if (session) window.location.href = "index.html";
+      })();
+
+      function switchTab(tab) {
+        document.getElementById("loginForm").style.display = "none";
+        document.getElementById("registerForm").style.display = "none";
+        document.getElementById("forgotForm").style.display = "none";
+        document.getElementById("loginTab").classList.remove("active");
+        document.getElementById("registerTab").classList.remove("active");
+        hideAlert();
+
+        if (tab === "login") {
+          document.getElementById("loginForm").style.display = "block";
+          document.getElementById("loginTab").classList.add("active");
+        } else if (tab === "register") {
+          document.getElementById("registerForm").style.display = "block";
+          document.getElementById("registerTab").classList.add("active");
+        } else {
+          document.getElementById("forgotForm").style.display = "block";
+        }
+      }
+
+      function showAlert(msg, type = "error") {
+        const el = document.getElementById("alertBox");
+        el.textContent = msg;
+        el.className = `alert ${type}`;
+        el.style.display = "block";
+      }
+      function hideAlert() {
+        document.getElementById("alertBox").style.display = "none";
+      }
+
+      function setLoading(btnId, loading) {
+        const btn = document.getElementById(btnId);
+        btn.disabled = loading;
+        btn.innerHTML = loading
+          ? '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...'
+          : btn.dataset.orig;
+      }
+
+      function togglePwd(id) {
+        const inp = document.getElementById(id);
+        inp.type = inp.type === "password" ? "text" : "password";
+      }
+
+      // Save original button text
+      document.getElementById("loginBtn").dataset.orig =
+        document.getElementById("loginBtn").innerHTML;
+      document.getElementById("regBtn").dataset.orig =
+        document.getElementById("regBtn").innerHTML;
+
+      async function doLogin() {
+        hideAlert();
+        const email = document.getElementById("loginEmail").value.trim();
+        const pass = document.getElementById("loginPass").value;
+        if (!email || !pass)
+          return showAlert("Vui lòng nhập đầy đủ email và mật khẩu.");
+
+        setLoading("loginBtn", true);
+        const { error } = await sb.auth.signInWithPassword({
+          email,
+          password: pass,
+        });
+        setLoading("loginBtn", false);
+
+        if (error) {
+          const msgs = {
+            "Invalid login credentials": "Email hoặc mật khẩu không đúng.",
+            "Email not confirmed":
+              "Vui lòng xác nhận email trước khi đăng nhập.",
+          };
+          showAlert(msgs[error.message] || error.message);
+        } else {
+          showAlert("Đăng nhập thành công! Đang chuyển trang...", "success");
+          setTimeout(() => (window.location.href = "index.html"), 800);
+        }
+      }
+
+      async function doRegister() {
+        hideAlert();
+        const name = document
+          .getElementById("regName")
+          .value.trim()
+          .toUpperCase();
+        const course = document.getElementById("regCourse").value.trim();
+        const cls = document.getElementById("regClass").value.trim();
+        const email = document.getElementById("regEmail").value.trim();
+        const pass = document.getElementById("regPass").value;
+
+        if (!name || !email || !pass)
+          return showAlert("Vui lòng nhập đầy đủ thông tin bắt buộc.");
+        if (pass.length < 6) return showAlert("Mật khẩu cần ít nhất 6 ký tự.");
+
+        setLoading("regBtn", true);
+        const { data, error } = await sb.auth.signUp({
+          email,
+          password: pass,
+          options: { data: { name, course, class_name: cls } },
+        });
+        setLoading("regBtn", false);
+
+        if (error) {
+          const msgs = {
+            "User already registered": "Email này đã được đăng ký.",
+          };
+          showAlert(msgs[error.message] || error.message);
+          return;
+        }
+
+        // Cập nhật profile với thông tin đầy đủ
+        if (data.user) {
+          await updateProfile(data.user.id, { name, course, class_name: cls });
+        }
+
+        showAlert("Tạo tài khoản thành công! Đang đăng nhập...", "success");
+        setTimeout(() => (window.location.href = "index.html"), 1000);
+      }
+
+      async function doForgot() {
+        const email = document.getElementById("forgotEmail").value.trim();
+        if (!email) return showAlert("Vui lòng nhập email.");
+        const { error } = await sb.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + "/auth.html",
+        });
+        if (error) {
+          showAlert(error.message);
+          return;
+        }
+        showAlert(
+          "Đã gửi email đặt lại mật khẩu. Vui lòng kiểm tra hộp thư!",
+          "success",
+        );
+      }
+
+      // Enter key support
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter") return;
+        if (document.getElementById("loginForm").style.display !== "none")
+          doLogin();
+        else if (
+          document.getElementById("registerForm").style.display !== "none"
+        )
+          doRegister();
+      });
+    </script>
+  </body>
+</html>
