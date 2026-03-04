@@ -161,6 +161,76 @@
         max-width: 100%;
         display: block;
       }
+
+      /* ── MATERIAL CARDS ── */
+      .mat-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .mat-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: white;
+        border: 1.5px solid var(--gray-200);
+        border-radius: 14px;
+        padding: 14px;
+        cursor: pointer;
+        transition: all 0.18s;
+      }
+      .mat-card:hover {
+        border-color: var(--red);
+        background: var(--red-bg);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(183, 28, 28, 0.1);
+      }
+      .mat-card-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #ffebee, #ffcdd2);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+        flex-shrink: 0;
+      }
+      .mat-card-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .mat-card-title {
+        font-weight: 700;
+        font-size: 0.85rem;
+        margin-bottom: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .mat-card-meta {
+        font-size: 0.68rem;
+        color: var(--gray-500);
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .mat-card-badge {
+        background: var(--red-bg);
+        color: var(--red);
+        padding: 2px 7px;
+        border-radius: 100px;
+        font-size: 0.62rem;
+        font-weight: 700;
+      }
+      .mat-card-arrow {
+        color: var(--gray-300);
+        font-size: 0.9rem;
+        flex-shrink: 0;
+      }
+      .mat-card:hover .mat-card-arrow {
+        color: var(--red);
+      }
       .slide-nav {
         display: flex;
         align-items: center;
@@ -703,59 +773,108 @@
 
         <!-- Upload Zone -->
         <div id="uploadSection">
-          <div class="upload-zone" id="uploadZone">
-            <input
-              type="file"
-              accept=".pdf"
-              id="fileInput"
-              onchange="handleFile(event)"
-            />
-            <div class="upload-icon"><i class="fas fa-file-pdf"></i></div>
-            <div class="upload-title">Tải lên file PDF bài giảng</div>
-            <div class="upload-sub">
-              Kéo thả hoặc nhấn để chọn file · Hỗ trợ PDF nhiều chương
-            </div>
+          <!-- Materials from DB (teacher-uploaded) -->
+          <div id="materialsSection">
             <div
               style="
-                margin-top: 16px;
                 display: flex;
-                justify-content: center;
-                gap: 8px;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 12px;
               "
             >
-              <span
+              <div style="font-weight: 700; font-size: 0.9rem">
+                📚 Tài liệu bài giảng
+              </div>
+              <button
+                onclick="toggleSelfUpload()"
                 style="
-                  background: var(--red-bg);
-                  color: var(--red);
-                  padding: 4px 12px;
-                  border-radius: 20px;
                   font-size: 0.72rem;
-                  font-weight: 600;
+                  color: var(--gray-500);
+                  background: none;
+                  border: none;
+                  cursor: pointer;
+                  text-decoration: underline;
                 "
-                >PDF</span
               >
-              <span
+                Tự upload PDF
+              </button>
+            </div>
+            <div
+              id="matLoadingEl"
+              style="text-align: center; padding: 20px; color: var(--gray-400)"
+            >
+              <i class="fas fa-spinner fa-spin"></i> Đang tải tài liệu...
+            </div>
+            <div id="matGridEl" style="display: none"></div>
+            <div
+              id="matEmptyEl"
+              style="
+                display: none;
+                text-align: center;
+                padding: 28px 16px;
+                color: var(--gray-400);
+              "
+            >
+              <i
+                class="fas fa-folder-open"
+                style="font-size: 2.5rem; margin-bottom: 10px; display: block"
+              ></i>
+              <div style="font-weight: 700; margin-bottom: 4px">
+                Chưa có tài liệu nào
+              </div>
+              <div style="font-size: 0.75rem">
+                Giảng viên chưa upload tài liệu. Bạn có thể tự upload PDF bên
+                dưới.
+              </div>
+              <button
+                onclick="toggleSelfUpload()"
+                class="btn btn-outline btn-sm"
+                style="margin-top: 12px"
+              >
+                <i class="fas fa-upload"></i> Tự upload PDF
+              </button>
+            </div>
+          </div>
+
+          <!-- Self upload (hidden by default, shown when no materials or user clicks) -->
+          <div id="selfUploadSection" style="display: none; margin-top: 12px">
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 10px;
+              "
+            >
+              <button
+                onclick="toggleSelfUpload()"
                 style="
-                  background: #e8f5e9;
-                  color: #2e7d32;
-                  padding: 4px 12px;
-                  border-radius: 20px;
-                  font-size: 0.72rem;
-                  font-weight: 600;
+                  background: none;
+                  border: none;
+                  cursor: pointer;
+                  color: var(--gray-500);
+                  font-size: 0.9rem;
                 "
-                >AI phân tích tự động</span
               >
-              <span
-                style="
-                  background: #e3f2fd;
-                  color: #1565c0;
-                  padding: 4px 12px;
-                  border-radius: 20px;
-                  font-size: 0.72rem;
-                  font-weight: 600;
-                "
-                >Giọng nói TTS</span
+                <i class="fas fa-arrow-left"></i>
+              </button>
+              <span style="font-size: 0.82rem; font-weight: 700"
+                >Upload PDF của bạn</span
               >
+            </div>
+            <div class="upload-zone" id="uploadZone">
+              <input
+                type="file"
+                accept=".pdf"
+                id="fileInput"
+                onchange="handleFile(event)"
+              />
+              <div class="upload-icon"><i class="fas fa-file-pdf"></i></div>
+              <div class="upload-title">Tải lên file PDF bài giảng</div>
+              <div class="upload-sub">
+                Kéo thả hoặc nhấn để chọn file · Hỗ trợ PDF nhiều chương
+              </div>
             </div>
           </div>
 
@@ -1005,6 +1124,9 @@
       <a href="cai-dat.html" class="nav-item"
         ><i class="fas fa-cog"></i><span>Cài đặt</span></a
       >
+      <a href="admin.html" class="nav-item"
+        ><i class="fas fa-shield-alt"></i><span>Admin</span></a
+      >
     </nav>
 
     <script>
@@ -1104,19 +1226,135 @@
         loadVoices();
         window.speechSynthesis.onvoiceschanged = loadVoices;
 
-        // Drag & drop
+        // Drag & drop (self-upload zone)
         const zone = document.getElementById("uploadZone");
-        zone.addEventListener("dragover", (e) => {
-          e.preventDefault();
-          zone.classList.add("drag");
-        });
-        zone.addEventListener("dragleave", () => zone.classList.remove("drag"));
-        zone.addEventListener("drop", (e) => {
-          e.preventDefault();
-          zone.classList.remove("drag");
-          const f = e.dataTransfer.files[0];
-          if (f) processFile(f);
-        });
+        if (zone) {
+          zone.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            zone.classList.add("drag");
+          });
+          zone.addEventListener("dragleave", () =>
+            zone.classList.remove("drag"),
+          );
+          zone.addEventListener("drop", (e) => {
+            e.preventDefault();
+            zone.classList.remove("drag");
+            const f = e.dataTransfer.files[0];
+            if (f) processFile(f);
+          });
+        }
+
+        // Load teacher-uploaded materials
+        await loadMaterials();
+
+        // Auto-open nếu được gọi từ trang khác (VD: ?mat=uuid)
+        const urlParams = new URLSearchParams(window.location.search);
+        const matId = urlParams.get("mat");
+        if (matId) {
+          try {
+            const { data } = await sb
+              .from("materials")
+              .select("*")
+              .eq("id", matId)
+              .single();
+            if (data)
+              openMaterial(data.id, data.file_url, data.title, data.chapter);
+          } catch (e) {}
+        }
+      }
+
+      // ── Load materials from Supabase ──
+      async function loadMaterials() {
+        const loadingEl = document.getElementById("matLoadingEl");
+        const gridEl = document.getElementById("matGridEl");
+        const emptyEl = document.getElementById("matEmptyEl");
+
+        try {
+          const { data, error } = await sb
+            .from("materials")
+            .select("*")
+            .eq("is_active", true)
+            .order("chapter", { ascending: true });
+
+          if (loadingEl) loadingEl.style.display = "none";
+
+          if (error || !data || data.length === 0) {
+            // No materials → show self-upload directly
+            if (emptyEl) emptyEl.style.display = "block";
+            // Also show self-upload zone
+            const selfUpload = document.getElementById("selfUploadSection");
+            if (selfUpload) selfUpload.style.display = "block";
+            return;
+          }
+
+          if (gridEl) {
+            gridEl.style.display = "block";
+            gridEl.innerHTML =
+              '<div class="mat-grid">' +
+              data
+                .map((m) => {
+                  const size =
+                    m.file_size > 1024 * 1024
+                      ? (m.file_size / 1024 / 1024).toFixed(1) + " MB"
+                      : (m.file_size / 1024).toFixed(0) + " KB";
+                  return `<div class="mat-card" onclick="openMaterial('${m.id}','${m.file_url}','${m.title.replace(/'/g, "\'")}','${m.chapter.replace(/'/g, "\'")}')">
+          <div class="mat-card-icon">📄</div>
+          <div class="mat-card-info">
+            <div class="mat-card-title">${m.title}</div>
+            <div class="mat-card-meta">
+              <span class="mat-card-badge">${m.chapter || "Chung"}</span>
+              <span>${size}</span>
+              <span>👁 ${m.view_count || 0} lượt xem</span>
+            </div>
+          </div>
+          <i class="fas fa-chevron-right mat-card-arrow"></i>
+        </div>`;
+                })
+                .join("") +
+              "</div>";
+          }
+        } catch (e) {
+          if (loadingEl) loadingEl.style.display = "none";
+          if (emptyEl) emptyEl.style.display = "block";
+        }
+      }
+
+      // ── Open a teacher-uploaded material ──
+      async function openMaterial(id, fileUrl, title, chapter) {
+        // Increment view count
+        try {
+          await sb.rpc("increment_material_views", { material_id: id });
+        } catch {}
+
+        // Show processing state
+        document.getElementById("uploadSection").style.display = "none";
+        document.getElementById("processingInfo").style.display = "block";
+        document.getElementById("processingMsg").textContent =
+          "Đang tải tài liệu: " + title;
+
+        try {
+          // Fetch PDF as ArrayBuffer
+          const resp = await fetch(fileUrl);
+          const buffer = await resp.arrayBuffer();
+          // Create a fake File object to reuse processFile
+          const blob = new Blob([buffer], { type: "application/pdf" });
+          const file = new File([blob], title + ".pdf", {
+            type: "application/pdf",
+          });
+          processFile(file);
+        } catch (e) {
+          document.getElementById("processingInfo").style.display = "none";
+          document.getElementById("uploadSection").style.display = "block";
+          alert("Không thể tải tài liệu. Vui lòng thử lại!");
+        }
+      }
+
+      function toggleSelfUpload() {
+        const selfEl = document.getElementById("selfUploadSection");
+        const matEl = document.getElementById("materialsSection");
+        const showing = selfEl.style.display !== "none";
+        selfEl.style.display = showing ? "none" : "block";
+        matEl.style.display = showing ? "block" : "none";
       }
 
       function saveGroqKey() {
