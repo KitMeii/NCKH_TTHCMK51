@@ -16,6 +16,11 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        // EF Core's InMemory provider doesn't support Database.MigrateAsync() (it's a relational-only
+        // API), and tests don't want the demo-account seeder polluting a fresh per-test database either.
+        builder.UseSetting("Database:AutoMigrate", "false");
+        builder.UseSetting("Seed:Enabled", "false");
+
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<AuthDbContext>>();

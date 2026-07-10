@@ -44,10 +44,17 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapSharedHealthChecks();
 
-if (builder.Configuration.GetValue<bool>("Seed:Enabled"))
+var autoMigrate = builder.Configuration.GetValue("Database:AutoMigrate", app.Environment.IsDevelopment());
+if (autoMigrate)
 {
     using var scope = app.Services.CreateScope();
-    await DemoDataSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<AuthDbContext>());
+    var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+    await DatabaseInitializer.MigrateWithRetryAsync(db, app.Logger);
+
+    if (builder.Configuration.GetValue<bool>("Seed:Enabled"))
+    {
+        await DemoDataSeeder.SeedAsync(db);
+    }
 }
 
 app.Run();
