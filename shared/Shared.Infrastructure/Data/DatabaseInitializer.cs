@@ -1,20 +1,22 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
-namespace AuthService.Api.Data;
+namespace Shared.Infrastructure.Data;
 
 /// <summary>
 /// Applies pending EF Core migrations with a short retry loop. Needed because in docker-compose,
-/// the auth-service container can start before Postgres has finished accepting connections even
-/// when Postgres's own healthcheck says "starting" — a bare `db.Database.Migrate()` on first
-/// boot would crash the whole process on that transient race instead of just waiting it out.
+/// a service's container can start before Postgres has finished accepting connections — a bare
+/// `db.Database.Migrate()` on first boot would crash the whole process on that transient race
+/// instead of just waiting it out.
 /// </summary>
 public static class DatabaseInitializer
 {
-    public static async Task MigrateWithRetryAsync(
-        AuthDbContext db,
+    public static async Task MigrateWithRetryAsync<TContext>(
+        TContext db,
         ILogger logger,
         int maxAttempts = 10,
         TimeSpan? delay = null)
+        where TContext : DbContext
     {
         delay ??= TimeSpan.FromSeconds(3);
 

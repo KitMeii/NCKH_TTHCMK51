@@ -1,7 +1,7 @@
 using System.Reflection;
-using AuthService.Api.Data;
-using AuthService.Api.Endpoints;
-using AuthService.Api.Services;
+using ContentService.Api.Data;
+using ContentService.Api.Endpoints;
+using ContentService.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Auth;
 using Shared.Infrastructure.Data;
@@ -12,20 +12,19 @@ using Shared.Infrastructure.Validation;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.AddSharedObservability("auth-service");
+builder.AddSharedObservability("content-service");
 
-var connectionString = builder.Configuration.GetConnectionString("AuthDb")
-    ?? throw new InvalidOperationException("Missing ConnectionStrings:AuthDb configuration.");
+var connectionString = builder.Configuration.GetConnectionString("ContentDb")
+    ?? throw new InvalidOperationException("Missing ConnectionStrings:ContentDb configuration.");
 
-builder.Services.AddDbContext<AuthDbContext>(options => options.UseNpgsql(connectionString));
+builder.Services.AddDbContext<ContentDbContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddSharedHealthChecks(connectionString);
 
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
-builder.Services.AddSharedJwtIssuer();
 builder.Services.AddSharedCors(builder.Configuration);
 builder.Services.AddSharedValidation(Assembly.GetExecutingAssembly());
 
-builder.Services.AddScoped<IAuthService, AuthServiceImpl>();
+builder.Services.AddScoped<IMaterialService, MaterialService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -42,20 +41,14 @@ app.UseSharedMiddleware();
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapAuthEndpoints();
+app.MapMaterialEndpoints();
 app.MapSharedHealthChecks();
 
-var autoMigrate = builder.Configuration.GetValue("Database:AutoMigrate", app.Environment.IsDevelopment());
-if (autoMigrate)
+if (builder.Configuration.GetValue("Database:AutoMigrate", app.Environment.IsDevelopment()))
 {
     using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<ContentDbContext>();
     await DatabaseInitializer.MigrateWithRetryAsync(db, app.Logger);
-
-    if (builder.Configuration.GetValue<bool>("Seed:Enabled"))
-    {
-        await DemoDataSeeder.SeedAsync(db);
-    }
 }
 
 app.Run();

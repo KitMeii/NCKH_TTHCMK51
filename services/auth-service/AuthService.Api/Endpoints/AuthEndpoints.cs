@@ -2,6 +2,7 @@ using System.Security.Claims;
 using AuthService.Api.Dtos;
 using AuthService.Api.Services;
 using Microsoft.AspNetCore.Authorization;
+using Shared.Infrastructure.Auth;
 using Shared.Infrastructure.Common;
 using Shared.Infrastructure.Validation;
 
@@ -31,9 +32,7 @@ public static class AuthEndpoints
 
         group.MapGet("/me", async (ClaimsPrincipal principal, IAuthService authService, CancellationToken ct) =>
             {
-                var userId = Guid.Parse(principal.FindFirstValue(ClaimTypes.NameIdentifier)
-                    ?? principal.FindFirstValue("sub")!);
-                var result = await authService.GetByIdAsync(userId, ct);
+                var result = await authService.GetByIdAsync(principal.GetUserId(), ct);
                 return Results.Ok(ApiResponse<UserResponse>.Ok(result));
             })
             .RequireAuthorization();
