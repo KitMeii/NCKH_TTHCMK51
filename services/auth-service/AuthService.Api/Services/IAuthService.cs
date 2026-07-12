@@ -7,4 +7,5 @@ public interface IAuthService
     Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct);
     Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct);
     Task<UserResponse> GetByIdAsync(Guid userId, CancellationToken ct);
+    Task<IReadOnlyList<UserNameResponse>> GetNamesByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken ct);
 }

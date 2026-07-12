@@ -33,6 +33,12 @@ public static class AttemptEndpoints
             return Results.Ok(ApiResponse<IReadOnlyList<WrongAnswerResponse>>.Ok(result));
         });
 
+        group.MapGet("/my-results", async (ClaimsPrincipal principal, IQuizAttemptService service, CancellationToken ct) =>
+        {
+            var result = await service.GetMyResultsAsync(principal.GetUserId(), ct);
+            return Results.Ok(ApiResponse<IReadOnlyList<MyResultResponse>>.Ok(result));
+        });
+
         group.MapPost("/oral/submit", async (SubmitOralRequest request, ClaimsPrincipal principal, IOralAttemptService service, CancellationToken ct) =>
             {
                 var result = await service.SubmitAsync(principal.GetUserId(), request, ct);

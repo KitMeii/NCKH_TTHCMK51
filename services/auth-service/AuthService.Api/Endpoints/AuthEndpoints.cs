@@ -37,6 +37,19 @@ public static class AuthEndpoints
             })
             .RequireAuthorization();
 
+        // Cross-service display enrichment (progress-service leaderboard, admin-service roster) —
+        // name only, see UserNameResponse remarks. Any authenticated caller, not just Teacher/Admin,
+        // since a student's own leaderboard view needs classmates' names too.
+        group.MapGet("/users/names", async (string ids, IAuthService authService, CancellationToken ct) =>
+            {
+                var parsedIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                    .Select(Guid.Parse)
+                    .ToList();
+                var result = await authService.GetNamesByIdsAsync(parsedIds, ct);
+                return Results.Ok(ApiResponse<IReadOnlyList<UserNameResponse>>.Ok(result));
+            })
+            .RequireAuthorization();
+
         return app;
     }
 }

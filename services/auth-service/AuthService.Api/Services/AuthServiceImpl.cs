@@ -57,6 +57,14 @@ public sealed class AuthServiceImpl(AuthDbContext db, IJwtTokenService tokenServ
         return ToUserResponse(user);
     }
 
+    public async Task<IReadOnlyList<UserNameResponse>> GetNamesByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken ct)
+    {
+        return await db.Users
+            .Where(u => ids.Contains(u.Id))
+            .Select(u => new UserNameResponse(u.Id, u.Name))
+            .ToListAsync(ct);
+    }
+
     private AuthResponse BuildAuthResponse(User user)
     {
         var token = tokenService.IssueAccessToken(user.Id.ToString(), user.Email, user.Name, user.Role);

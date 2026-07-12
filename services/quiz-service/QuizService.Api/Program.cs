@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using QuizService.Api.Data;
 using QuizService.Api.Endpoints;
 using QuizService.Api.Grading;
+using QuizService.Api.Progress;
 using QuizService.Api.Services;
 using Shared.Infrastructure.Auth;
 using Shared.Infrastructure.Data;
@@ -36,6 +37,13 @@ builder.Services.AddHttpClient<IOralGradingClient, HttpOralGradingClient>(client
 {
     client.BaseAddress = new Uri(aiServiceBaseUrl);
     client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+var progressServiceBaseUrl = builder.Configuration.GetValue("Services:Progress:BaseUrl", "http://progress-service:8080")!;
+builder.Services.AddHttpClient<IProgressReporter, HttpProgressReporter>(client =>
+{
+    client.BaseAddress = new Uri(progressServiceBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(10);
 });
 
 builder.Services.AddEndpointsApiExplorer();

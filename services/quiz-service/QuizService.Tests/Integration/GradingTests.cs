@@ -9,10 +9,12 @@ namespace QuizService.Tests.Integration;
 
 public sealed class GradingTests : IClassFixture<QuizApiFactory>
 {
+    private readonly QuizApiFactory _factory;
     private readonly HttpClient _client;
 
     public GradingTests(QuizApiFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -131,6 +133,7 @@ public sealed class GradingTests : IClassFixture<QuizApiFactory>
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(10.0m, body!.Data!.Score);
         Assert.Equal(1, body.Data.Correct);
+        Assert.Contains(10.0m, _factory.ProgressReporter.ReportedScores);
     }
 
     [Fact]

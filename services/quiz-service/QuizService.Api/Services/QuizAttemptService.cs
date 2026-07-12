@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using QuizService.Api.Data;
 using QuizService.Api.Dtos;
 using QuizService.Api.Entities;
+using QuizService.Api.Progress;
 using Shared.Infrastructure.Common;
 
 namespace QuizService.Api.Services;
@@ -14,7 +16,7 @@ namespace QuizService.Api.Services;
 /// this service until after grading, and the score is always computed from the stored Question
 /// rows, never trusted from the request.
 /// </summary>
-public sealed class QuizAttemptService(QuizDbContext db) : IQuizAttemptService
+public sealed class QuizAttemptService(QuizDbContext db, IProgressReporter progressReporter, ILogger<QuizAttemptService> logger) : IQuizAttemptService
 {
     public async Task<SubmitResultResponse> SubmitPracticeAsync(Guid userId, SubmitQuizRequest request, CancellationToken ct)
     {
@@ -31,6 +33,7 @@ public sealed class QuizAttemptService(QuizDbContext db) : IQuizAttemptService
 
         await RecordWrongAnswersAsync(userId, gradedAnswers, ct);
         await db.SaveChangesAsync(ct);
+        await ReportScoreBestEffortAsync(userId, result.Score, ct);
 
         return result;
     }
@@ -50,8 +53,23 @@ public sealed class QuizAttemptService(QuizDbContext db) : IQuizAttemptService
 
         await RecordWrongAnswersAsync(userId, gradedAnswers, ct);
         await db.SaveChangesAsync(ct);
+        await ReportScoreBestEffortAsync(userId, result.Score, ct);
 
         return result;
+    }
+
+    private async Task ReportScoreBestEffortAsync(Guid userId, decimal score, CancellationToken ct)
+    {
+        try
+        {
+            await progressReporter.ReportScoreAsync(score, ct);
+        }
+        catch (Exception ex)
+        {
+            // progress-service tracks the leaderboard/average — secondary to the grading result
+            // itself, so a temporary outage there must not fail the student's quiz submission.
+            logger.LogWarning(ex, "Failed to report score to progress-service for user {UserId}", userId);
+        }
     }
 
     public async Task<IReadOnlyList<WrongAnswerResponse>> GetWrongAnswersAsync(Guid userId, CancellationToken ct)
@@ -65,6 +83,19 @@ public sealed class QuizAttemptService(QuizDbContext db) : IQuizAttemptService
         ).ToListAsync(ct);
 
         return rows;
+    }
+
+    public async Task<IReadOnlyList<MyResultResponse>> GetMyResultsAsync(Guid userId, CancellationToken ct)
+    {
+        var quizResults = await db.QuizResults.Where(r => r.UserId == userId)
+            .Select(r => new MyResultResponse(r.Id, "practice", r.Chapter, r.Score, r.Correct, r.Total, r.CreatedAtUtc))
+            .ToListAsync(ct);
+
+        var examResults = await db.ExamResults.Where(r => r.UserId == userId)
+            .Select(r => new MyResultResponse(r.Id, "exam", null, r.Score, r.Correct, r.Total, r.CreatedAtUtc))
+            .ToListAsync(ct);
+
+        return quizResults.Concat(examResults).OrderByDescending(r => r.CreatedAtUtc).ToList();
     }
 
     private async Task<(SubmitResultResponse Result, IReadOnlyList<GradedAnswer> GradedAnswers)> GradeAsync(
