@@ -24,6 +24,7 @@ builder.Services.AddSharedHealthChecks(connectionString);
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddSharedCors(builder.Configuration);
 builder.Services.AddSharedValidation(Assembly.GetExecutingAssembly());
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<IQuestionService, QuestionService>();
 builder.Services.AddScoped<IOralQuestionService, OralQuestionService>();
