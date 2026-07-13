@@ -14,6 +14,17 @@ public sealed class AdminApiFactory : WebApplicationFactory<Program>
     public readonly FakeAuthAdminClient AuthClient = new();
     public readonly FakeSystemStatsClient StatsClient = new();
 
+    // See ContentApiFactory's static constructor for why this is needed (CI has no
+    // appsettings.Development.json, so Program.cs throws on missing config before
+    // ConfigureWebHost gets a chance to run).
+    static AdminApiFactory()
+    {
+        Environment.SetEnvironmentVariable("ConnectionStrings__AdminDb",
+            Environment.GetEnvironmentVariable("ConnectionStrings__AdminDb") ?? "Server=unused;Database=unused;Trusted_Connection=True;TrustServerCertificate=True");
+        Environment.SetEnvironmentVariable("Jwt__SigningKey",
+            Environment.GetEnvironmentVariable("Jwt__SigningKey") ?? "dev-only-signing-key-do-not-use-in-production-min-32-chars");
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("Database:AutoMigrate", "false");
