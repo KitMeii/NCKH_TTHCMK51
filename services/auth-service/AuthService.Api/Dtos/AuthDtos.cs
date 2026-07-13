@@ -11,3 +11,5 @@ public sealed record AuthResponse(string AccessToken, DateTime ExpiresAtUtc, Use
 /// <summary>Minimal display info other services (progress-service leaderboard, admin-service
 /// roster) enrich cross-service data with — name only, not email/role, to keep exposure minimal.</summary>
 public sealed record UserNameResponse(Guid Id, string Name);
+
+public sealed record ChangeRoleRequest(string Role);

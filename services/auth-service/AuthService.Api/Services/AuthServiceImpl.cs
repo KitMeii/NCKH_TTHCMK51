@@ -65,6 +65,30 @@ public sealed class AuthServiceImpl(AuthDbContext db, IJwtTokenService tokenServ
             .ToListAsync(ct);
     }
 
+    public async Task<IReadOnlyList<UserResponse>> ListUsersAsync(string? role, CancellationToken ct)
+    {
+        var query = db.Users.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(role))
+        {
+            query = query.Where(u => u.Role == role);
+        }
+
+        return await query.OrderBy(u => u.Name)
+            .Select(u => new UserResponse(u.Id, u.Email, u.Name, u.Role))
+            .ToListAsync(ct);
+    }
+
+    public async Task<UserResponse> ChangeRoleAsync(Guid userId, string newRole, CancellationToken ct)
+    {
+        var user = await db.Users.FindAsync([userId], ct)
+            ?? throw new NotFoundException("Không tìm thấy người dùng.");
+
+        user.Role = newRole;
+        await db.SaveChangesAsync(ct);
+
+        return ToUserResponse(user);
+    }
+
     private AuthResponse BuildAuthResponse(User user)
     {
         var token = tokenService.IssueAccessToken(user.Id.ToString(), user.Email, user.Name, user.Role);
