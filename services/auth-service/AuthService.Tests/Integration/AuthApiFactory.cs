@@ -1,30 +1,90 @@
 using AuthService.Api.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AuthService.Tests.Integration;
 
-/// <summary>Swaps the real Postgres-backed AuthDbContext for a fresh EF Core InMemory database
-/// per factory instance, so integration tests exercise the real HTTP pipeline (auth, validation,
-/// exception middleware, endpoints) without needing a live Postgres server.</summary>
-public sealed class AuthApiFactory : WebApplicationFactory<Program>
+/// <summary>
+/// Backs <see cref="AuthDbContext"/> with a fresh, isolated database per factory instance (one per
+/// test class, via IClassFixture) so integration tests exercise the real HTTP pipeline (auth,
+/// validation, exception middleware, endpoints) without cross-test data bleed.
+///
+/// Two modes, chosen by the presence of the TEST_MSSQL_CONNECTION env var:
+///  - Unset (default, local dev): EF Core InMemory — fast, no external dependency.
+///  - Set (CI, see auth-service.yml's mssql service container): a real SQL Server database named
+///    auth_tests_&lt;guid&gt;, migrated in InitializeAsync and dropped in DisposeAsync. This is what
+///    actually exercises SQL Server-specific behavior (decimal precision, nvarchar, real
+///    constraints) that InMemory silently ignores or fakes.
+/// </summary>
+public sealed class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
-    private readonly string _databaseName = $"auth-tests-{Guid.NewGuid()}";
+    private static readonly string? SqlServerBaseConnectionString =
+        Environment.GetEnvironmentVariable("TEST_MSSQL_CONNECTION");
+
+    private readonly string _databaseName = $"auth_tests_{Guid.NewGuid():N}";
+
+    private bool UseSqlServerBackend => !string.IsNullOrWhiteSpace(SqlServerBaseConnectionString);
+
+    private string BuildSqlServerConnectionString()
+    {
+        var builder = new SqlConnectionStringBuilder(SqlServerBaseConnectionString) { InitialCatalog = _databaseName };
+        return builder.ConnectionString;
+    }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // EF Core's InMemory provider doesn't support Database.MigrateAsync() (it's a relational-only
-        // API), and tests don't want the demo-account seeder polluting a fresh per-test database either.
+        // Migration/seeding is driven explicitly below (InitializeAsync), not by the app's own
+        // startup path, and tests don't want the demo-account seeder polluting a fresh database.
         builder.UseSetting("Database:AutoMigrate", "false");
         builder.UseSetting("Seed:Enabled", "false");
 
         builder.ConfigureServices(services =>
         {
             services.RemoveAll<DbContextOptions<AuthDbContext>>();
-            services.AddDbContext<AuthDbContext>(options => options.UseInMemoryDatabase(_databaseName));
+            services.AddDbContext<AuthDbContext>(options =>
+            {
+                if (UseSqlServerBackend)
+                {
+                    options.UseSqlServer(BuildSqlServerConnectionString());
+                }
+                else
+                {
+                    options.UseInMemoryDatabase(_databaseName);
+                }
+            });
         });
+    }
+
+    public async Task InitializeAsync()
+    {
+        if (!UseSqlServerBackend)
+        {
+            return;
+        }
+
+        using var scope = Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+        await db.Database.MigrateAsync();
+    }
+
+    public new async Task DisposeAsync()
+    {
+        if (UseSqlServerBackend)
+        {
+            await using var connection = new SqlConnection(SqlServerBaseConnectionString);
+            await connection.OpenAsync();
+            await using var command = connection.CreateCommand();
+            // Kick other connections off first — SQL Server refuses to DROP DATABASE while the
+            // pool this test run opened is still attached.
+            command.CommandText =
+                $"ALTER DATABASE [{_databaseName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{_databaseName}];";
+            await command.ExecuteNonQueryAsync();
+        }
+
+        await base.DisposeAsync();
     }
 }

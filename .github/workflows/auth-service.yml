@@ -15,11 +15,33 @@ on:
 
 # Template for the other services: copy this file, replace every "auth-service"/"AuthService"
 # occurrence with the target service's name, and adjust the `paths:` filters above so each
-# service's pipeline only runs when that service (or /shared) actually changed.
+# service's pipeline only runs when that service (or /shared) actually changed. The `services:`
+# and `env:` blocks under `build-test` (real SQL Server for integration tests) and the
+# CI_MSSQL_SA_PASSWORD secret they depend on are shared across every service's workflow —
+# copy them as-is, no per-service renaming needed there.
 
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    # Real SQL Server for integration tests — see AuthApiFactory: with TEST_MSSQL_CONNECTION set,
+    # every IClassFixture<AuthApiFactory> test class gets its own auth_tests_<guid> database,
+    # migrated up before tests run and dropped after. Without this env var (e.g. a local
+    # `dotnet test` run) the same tests fall back to EF Core InMemory automatically.
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_MSSQL_SA_PASSWORD }}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $MSSQL_SA_PASSWORD -C -Q 'SELECT 1' -b -o /dev/null || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      TEST_MSSQL_CONNECTION: Server=localhost,1433;User Id=sa;Password=${{ secrets.CI_MSSQL_SA_PASSWORD }};TrustServerCertificate=True
     steps:
       - uses: actions/checkout@v4
 
