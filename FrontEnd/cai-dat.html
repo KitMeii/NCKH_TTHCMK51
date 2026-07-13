@@ -4,13 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Cài đặt - Giảng viên Ảo TTHCM</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../style.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js"></script>
+    <script src="../api-client.js"></script>
   </head>
   <body>
     <header class="app-header">
@@ -198,89 +197,6 @@
               margin-bottom: 12px;
             "
           >
-            AI &amp; Tích hợp
-          </div>
-          <div style="margin-bottom: 12px">
-            <div
-              style="
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                margin-bottom: 8px;
-              "
-            >
-              <div
-                style="
-                  width: 32px;
-                  height: 32px;
-                  background: #fff3e0;
-                  border-radius: 8px;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  color: #e65100;
-                  flex-shrink: 0;
-                "
-              >
-                <i class="fas fa-bolt"></i>
-              </div>
-              <div>
-                <div class="setting-label">Groq API Key</div>
-                <div style="font-size: 0.7rem; color: var(--gray-400)">
-                  Dùng cho Chat AI, Thi vấn đáp, Giảng bài
-                </div>
-              </div>
-            </div>
-            <div style="display: flex; gap: 8px">
-              <input
-                class="form-input"
-                type="password"
-                id="groqKeyInput"
-                placeholder="gsk_xxxxxxxxxxxxxxxx"
-                style="flex: 1; font-size: 0.8rem"
-              />
-              <button
-                class="btn btn-red btn-sm"
-                onclick="saveGroqKey()"
-                style="white-space: nowrap"
-              >
-                <i class="fas fa-save"></i> Lưu
-              </button>
-            </div>
-            <div
-              style="
-                font-size: 0.68rem;
-                color: var(--gray-400);
-                margin-top: 5px;
-              "
-            >
-              Lấy miễn phí tại
-              <a
-                href="https://console.groq.com"
-                target="_blank"
-                style="color: var(--red)"
-                >console.groq.com</a
-              >
-              · Key được mã hóa và lưu vào tài khoản của bạn.
-            </div>
-            <div
-              id="groqKeyStatus"
-              style="font-size: 0.72rem; margin-top: 4px; display: none"
-            ></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div
-            style="
-              font-size: 0.7rem;
-              font-weight: 700;
-              letter-spacing: 0.8px;
-              color: var(--gray-400);
-              text-transform: uppercase;
-              margin-bottom: 12px;
-            "
-          >
             Tài khoản
           </div>
           <div class="setting-row" onclick="changePassword()">
@@ -333,7 +249,7 @@
 
         <div class="card" style="text-align: center; padding: 16px">
           <div style="font-size: 0.75rem; color: var(--gray-400)">
-            Phiên bản 1.0.0 · Supabase Backend
+            Phiên bản 2.0.0 · Kiến trúc Microservices
           </div>
           <div
             style="font-size: 0.72rem; color: var(--gray-400); margin-top: 4px"
@@ -482,72 +398,29 @@
         document.getElementById("darkToggle").checked = true;
         document.getElementById("darkIcon").className = "fas fa-sun";
       }
-      let currentUser = null,
-        profile = null;
+      let profile = null;
 
       async function init() {
-        currentUser = await requireAuth();
-        if (!currentUser) return;
-        profile = await getProfile(currentUser.id);
-        if (!profile) return;
+        if (!requireAuth()) return;
+        profile = await getProfile();
         renderUI();
       }
 
       function renderUI() {
-        const sub = [profile.course, profile.class_name]
+        const sub = [profile.course, profile.className]
           .filter(Boolean)
           .join(" · ");
         document.getElementById("profileName").textContent =
           profile.name || "—";
         document.getElementById("profileSub").textContent =
           sub || "Chưa cập nhật thông tin";
-        document.getElementById("profileEmail").textContent = currentUser.email;
-        const key =
-          profile.groq_api_key || localStorage.getItem("groqKey") || "";
-        if (key)
-          document.getElementById("groqKeyInput").placeholder =
-            "●●●●●●●●●● (đã lưu)";
-      }
-
-      async function saveGroqKey() {
-        const key = document.getElementById("groqKeyInput").value.trim();
-        const status = document.getElementById("groqKeyStatus");
-        if (!key) {
-          status.style.display = "block";
-          status.style.color = "var(--red)";
-          status.textContent = "⚠️ Vui lòng nhập key!";
-          return;
-        }
-        if (!key.startsWith("gsk_") && !key.startsWith("sk-")) {
-          status.style.display = "block";
-          status.style.color = "var(--red)";
-          status.textContent = "❌ Key không hợp lệ (phải bắt đầu bằng gsk_)";
-          return;
-        }
-        localStorage.setItem("groqKey", key);
-        const { error } = await sb
-          .from("profiles")
-          .update({ groq_api_key: key })
-          .eq("id", currentUser.id);
-        status.style.display = "block";
-        if (error) {
-          status.style.color = "var(--red)";
-          status.textContent = "❌ Lỗi lưu vào DB: " + error.message;
-        } else {
-          status.style.color = "#2e7d32";
-          status.textContent =
-            "✅ Đã lưu Groq key vào tài khoản! Dùng được trên mọi thiết bị.";
-          document.getElementById("groqKeyInput").value = "";
-          document.getElementById("groqKeyInput").placeholder =
-            "●●●●●●●●●● (đã lưu)";
-          profile.groq_api_key = key;
-        }
+        document.getElementById("profileEmail").textContent = profile.email;
       }
 
       function openEdit() {
         document.getElementById("editName").value = profile.name || "";
         document.getElementById("editCourse").value = profile.course || "";
-        document.getElementById("editClass").value = profile.class_name || "";
+        document.getElementById("editClass").value = profile.className || "";
         document.getElementById("editMsg").style.display = "none";
         openModal("editModal");
       }
@@ -562,42 +435,34 @@
           .toUpperCase();
         const course = document.getElementById("editCourse").value.trim();
         const cls = document.getElementById("editClass").value.trim();
-        const ok = await updateProfile(currentUser.id, {
-          name,
-          course,
-          class_name: cls,
-        });
-        btn.disabled = false;
-        btn.innerHTML = "Lưu thay đổi";
-        if (ok) {
-          profile = await getProfile(currentUser.id);
+        try {
+          profile = await updateProfile({ name, course, className: cls });
           renderUI();
           const msg = document.getElementById("editMsg");
           msg.textContent = "✓ Đã lưu thành công!";
           msg.style.display = "block";
           setTimeout(() => closeModal("editModal"), 1000);
+        } catch (err) {
+          alert(err.message || "Lưu thất bại.");
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = "Lưu thay đổi";
         }
       }
 
       function changePassword() {
-        document.getElementById("emailDisplay").textContent = currentUser.email;
+        document.getElementById("emailDisplay").textContent = profile.email;
         document.getElementById("pwdMsg").style.display = "none";
         openModal("pwdModal");
       }
 
-      async function sendPasswordReset() {
-        const { error } = await sb.auth.resetPasswordForEmail(
-          currentUser.email,
-        );
+      function sendPasswordReset() {
+        // Chưa có hạ tầng gửi email ở backend hiện tại — báo rõ thay vì giả vờ đã gửi.
         const msg = document.getElementById("pwdMsg");
         msg.style.display = "block";
-        if (error) {
-          msg.style.color = "#c62828";
-          msg.textContent = error.message;
-        } else {
-          msg.style.color = "#2e7d32";
-          msg.textContent = "✓ Đã gửi email! Kiểm tra hộp thư của bạn.";
-        }
+        msg.style.color = "#c62828";
+        msg.textContent =
+          "Tính năng đặt lại mật khẩu qua email chưa khả dụng. Vui lòng liên hệ quản trị viên.";
       }
 
       function toggleDark() {

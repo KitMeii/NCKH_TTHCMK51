@@ -4,13 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bảng xếp hạng - Giảng viên Ảo TTHCM</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../style.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js"></script>
+    <script src="../api-client.js"></script>
     <style>
       .tab-row {
         display: flex;
@@ -259,7 +258,7 @@
             </div>
           </div>
           <div class="stat-card" style="margin: 0">
-            <div class="stat-label">Đã học</div>
+            <div class="stat-label">Lượt luyện tập</div>
             <div class="stat-value" id="myLearned" style="font-size: 1.5rem">
               —
             </div>
@@ -275,7 +274,7 @@
             🔥 Streak
           </button>
           <button class="tab-btn" onclick="switchTab('learned', this)">
-            📚 Số câu
+            📚 Lượt luyện tập
           </button>
         </div>
 
@@ -321,30 +320,21 @@
     <script>
       if (localStorage.getItem("darkMode") === "1")
         document.body.classList.add("dark");
-      let currentUser = null,
-        myProfile = null,
-        allData = [],
-        currentTab = "score";
+      let myUserId = null,
+        allData = [];
 
       async function init() {
-        currentUser = await requireAuth();
-        if (!currentUser) return;
-        myProfile = await getProfile(currentUser.id);
+        if (!requireAuth()) return;
+        const myProfile = await getProfile();
+        myUserId = myProfile.id;
+        const myProgress = await getMyProgress();
 
-        // Show my stats
-        if (myProfile) {
-          document.getElementById("myName").textContent =
-            myProfile.name || "Bạn";
-          document.getElementById("myAvg").textContent = parseFloat(
-            myProfile.avg_score || 0,
-          ).toFixed(1);
-          document.getElementById("myStreak").textContent =
-            (myProfile.streak || 0) + "🔥";
-          document.getElementById("myLearned").textContent =
-            myProfile.learned || 0;
-          document.getElementById("myRankCard").style.display = "flex";
-          document.getElementById("myStats").style.display = "grid";
-        }
+        document.getElementById("myName").textContent = myProfile.name || "Bạn";
+        document.getElementById("myAvg").textContent = (myProgress.avgScore || 0).toFixed(1);
+        document.getElementById("myStreak").textContent = (myProgress.streak || 0) + "🔥";
+        document.getElementById("myLearned").textContent = myProgress.totalAttempts || 0;
+        document.getElementById("myRankCard").style.display = "flex";
+        document.getElementById("myStats").style.display = "grid";
 
         await loadLeaderboard("score");
       }
@@ -354,36 +344,38 @@
         listEl.innerHTML =
           '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i>Đang tải...</div>';
 
-        const orderCol =
-          sortBy === "score"
-            ? "avg_score"
-            : sortBy === "streak"
-              ? "streak"
-              : "learned";
-
-        const { data, error } = await sb
-          .from("profiles")
-          .select(
-            "id, name, class_name, course, avg_score, streak, learned, progress",
-          )
-          .eq("role", "student")
-          .order(orderCol, { ascending: false })
-          .limit(30);
-
-        if (error || !data?.length) {
+        try {
+          // progress-service luôn trả top 30 theo điểm TB; 2 tab còn lại sắp xếp lại
+          // client-side trên cùng tập dữ liệu đó (không gọi API riêng cho từng tiêu chí).
+          if (allData.length === 0) {
+            allData = await getLeaderboard(30);
+          }
+        } catch (err) {
           listEl.innerHTML =
             '<div class="empty-state"><i class="fas fa-users"></i>Chưa có dữ liệu xếp hạng</div>';
           return;
         }
 
-        allData = data;
-        renderList(data, sortBy);
+        if (!allData.length) {
+          listEl.innerHTML =
+            '<div class="empty-state"><i class="fas fa-users"></i>Chưa có dữ liệu xếp hạng</div>';
+          return;
+        }
 
-        // Update my position
-        const myPos = data.findIndex((s) => s.id === currentUser?.id);
+        const sorted = [...allData].sort((a, b) => {
+          if (sortBy === "streak") return b.streak - a.streak;
+          if (sortBy === "learned") return b.totalAttempts - a.totalAttempts;
+          return b.avgScore - a.avgScore;
+        });
+
+        renderList(sorted, sortBy);
+
+        const myPos = sorted.findIndex((s) => s.userId === myUserId);
         if (myPos >= 0) {
           document.getElementById("myPos").textContent =
-            `Hạng #${myPos + 1} / ${data.length} học viên`;
+            `Hạng #${myPos + 1} / ${sorted.length} học viên`;
+        } else {
+          document.getElementById("myPos").textContent = "Chưa lọt top 30";
         }
       }
 
@@ -393,12 +385,10 @@
 
         listEl.innerHTML = data
           .map((s, i) => {
-            const isMe = s.id === currentUser?.id;
+            const isMe = s.userId === myUserId;
             const rankClass = i < 3 ? medals[i] : "rank-other";
             const rankIcon =
               i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1;
-            const sub =
-              [s.course, s.class_name].filter(Boolean).join(" · ") || "HVKTQS";
             const initials = (s.name || "HV")
               .split(" ")
               .slice(-2)
@@ -408,14 +398,14 @@
 
             let mainVal, mainLabel;
             if (sortBy === "score") {
-              mainVal = parseFloat(s.avg_score || 0).toFixed(1);
+              mainVal = (s.avgScore || 0).toFixed(1);
               mainLabel = "điểm TB";
             } else if (sortBy === "streak") {
               mainVal = s.streak || 0;
               mainLabel = "ngày streak";
             } else {
-              mainVal = s.learned || 0;
-              mainLabel = "câu đã học";
+              mainVal = s.totalAttempts || 0;
+              mainLabel = "lượt luyện tập";
             }
 
             return `<div class="rank-item ${isMe ? "me" : ""}">
@@ -423,7 +413,7 @@
       <div class="rank-avatar">${initials}</div>
       <div>
         <div class="rank-name">${s.name || "Học viên"}${isMe ? ' <span style="color:var(--red);font-size:0.65rem;">(Bạn)</span>' : ""}</div>
-        <div class="rank-sub">${sub}</div>
+        <div class="rank-sub">HVKTQS</div>
       </div>
       <div class="rank-value">
         <div class="rank-score">${mainVal}</div>
@@ -435,7 +425,6 @@
       }
 
       function switchTab(tab, btn) {
-        currentTab = tab;
         document
           .querySelectorAll(".tab-btn")
           .forEach((b) => b.classList.remove("active"));

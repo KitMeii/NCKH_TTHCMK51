@@ -4,14 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Trang chủ - Giảng viên Ảo TTHCM</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../style.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js"></script>
+    <script src="../api-client.js"></script>
     <style>
       @keyframes loadbar {
         0% {
@@ -200,9 +199,9 @@
         <!-- Stats -->
         <div class="stats-grid">
           <div class="stat-card">
-            <div class="stat-label">Đã học</div>
+            <div class="stat-label">Lượt luyện tập</div>
             <div class="stat-value" id="statLearned">—</div>
-            <div class="stat-unit">câu hỏi</div>
+            <div class="stat-unit">lượt</div>
           </div>
           <div class="stat-card">
             <div class="stat-label">Streak</div>
@@ -215,9 +214,9 @@
             <div class="stat-unit">thi thử</div>
           </div>
           <div class="stat-card">
-            <div class="stat-label">Tiến độ</div>
+            <div class="stat-label">Thời gian học</div>
             <div class="stat-value" id="statProgress">—</div>
-            <div class="stat-unit">hoàn thành</div>
+            <div class="stat-unit">phút</div>
           </div>
         </div>
 
@@ -292,7 +291,7 @@
               "
               id="currentLesson"
             >
-              —
+              Điểm trung bình thi thử
             </div>
             <div class="prog-track" style="margin-bottom: 4px">
               <div class="prog-fill" id="progFill" style="width: 0%"></div>
@@ -694,66 +693,8 @@
               />
             </div>
             <button class="btn btn-red btn-full" onclick="obStep1()">
-              Tiếp theo →
+              Bắt đầu →
             </button>
-          </div>
-          <!-- Step 2: Groq key -->
-          <div id="ob-step2" style="display: none">
-            <div style="font-weight: 700; margin-bottom: 8px">
-              <span
-                style="
-                  background: var(--red);
-                  color: white;
-                  border-radius: 50%;
-                  width: 22px;
-                  height: 22px;
-                  display: inline-flex;
-                  align-items: center;
-                  justify-content: center;
-                  font-size: 0.7rem;
-                  margin-right: 6px;
-                "
-                >2</span
-              >Nhập Groq API Key (tùy chọn)
-            </div>
-            <div
-              style="
-                font-size: 0.75rem;
-                color: var(--gray-500);
-                margin-bottom: 8px;
-              "
-            >
-              Key để dùng Chat AI & Thi vấn đáp. Lấy miễn phí tại
-              <a
-                href="https://console.groq.com"
-                target="_blank"
-                style="color: var(--red)"
-                >console.groq.com</a
-              >
-            </div>
-            <input
-              class="form-input"
-              id="ob-groq"
-              type="password"
-              placeholder="gsk_xxxxxxxx (bỏ qua nếu chưa có)"
-              style="margin-bottom: 12px"
-            />
-            <div style="display: flex; gap: 8px">
-              <button
-                class="btn btn-outline btn-sm"
-                onclick="obStep2Skip()"
-                style="flex: 1"
-              >
-                Bỏ qua
-              </button>
-              <button
-                class="btn btn-red btn-sm"
-                onclick="obStep2Save()"
-                style="flex: 2"
-              >
-                Lưu & Tiếp →
-              </button>
-            </div>
           </div>
           <!-- Step 3: Done -->
           <div
@@ -797,18 +738,22 @@
     <script>
       if (localStorage.getItem("darkMode") === "1")
         document.body.classList.add("dark");
-      let currentUser = null,
-        profile = null;
+      let profile = null,
+        myProgress = null;
 
       async function init() {
-        currentUser = await requireAuth();
-        if (!currentUser) return;
-        profile = await getProfile(currentUser.id);
-        if (!profile) return;
-        renderUI();
-        renderChart();
-        updateStreakOnLoad();
-        document.getElementById("loadingOverlay").style.display = "none";
+        if (!requireAuth()) return;
+        try {
+          profile = await getProfile();
+          myProgress = await getMyProgress();
+          renderUI();
+          renderChart();
+          renderAchievements();
+        } catch (err) {
+          console.error(err);
+        } finally {
+          document.getElementById("loadingOverlay").style.display = "none";
+        }
       }
 
       async function obStep1() {
@@ -822,82 +767,66 @@
           alert("Vui lòng nhập họ tên!");
           return;
         }
-        await updateProfile(currentUser.id, { name, course, class_name: cls });
-        profile = await getProfile(currentUser.id);
+        profile = await updateProfile({ name, course, className: cls });
         document.getElementById("ob-step1").style.display = "none";
-        document.getElementById("ob-step2").style.display = "block";
-      }
-      async function obStep2Save() {
-        const key = document.getElementById("ob-groq").value.trim();
-        if (key && (key.startsWith("gsk_") || key.startsWith("sk-"))) {
-          localStorage.setItem("groqKey", key);
-          await sb
-            .from("profiles")
-            .update({ groq_api_key: key })
-            .eq("id", currentUser.id);
-        }
-        document.getElementById("ob-step2").style.display = "none";
         document.getElementById("ob-step3").style.display = "block";
-      }
-      function obStep2Skip() {
-        document.getElementById("ob-step2").style.display = "none";
-        document.getElementById("ob-step3").style.display = "block";
+        renderUI();
       }
 
       function renderUI() {
         const p = profile;
+        const pr = myProgress || { streak: 0, avgScore: 0, totalAttempts: 0, totalStudyMinutes: 0 };
         // Kiểm tra học viên mới (chưa điền tên, và chưa dismiss onboarding)
         const dismissedOnboard = localStorage.getItem(
-          "onboarding_dismissed_" + (currentUser?.id || ""),
+          "onboarding_dismissed_" + (p?.id || ""),
         );
         if ((!p.name || p.name.trim() === "") && !dismissedOnboard) {
           setTimeout(() => openModal("onboardingModal"), 800);
         }
-        const sub = [p.course, p.class_name].filter(Boolean).join(" · ");
+        const sub = [p.course, p.className].filter(Boolean).join(" · ");
         document.getElementById("welcomeName").textContent =
           p.name || "Học viên";
         document.getElementById("welcomeSub").textContent =
           sub || "Học viện Kỹ thuật Quân sự";
-        document.getElementById("streakNum").textContent = p.streak || 0;
-        document.getElementById("statLearned").textContent = p.learned || 0;
-        document.getElementById("statStreak").textContent = p.streak || 0;
-        document.getElementById("statAvg").textContent = parseFloat(
-          p.avg_score || 0,
-        ).toFixed(1);
-        document.getElementById("statProgress").textContent =
-          (p.progress || 0) + "%";
-        document.getElementById("currentLesson").textContent =
-          p.current_lesson || "Chương 1: Khái niệm cơ bản";
-        const lp = p.lesson_progress || 0;
-        document.getElementById("progFill").style.width = lp + "%";
-        document.getElementById("progPct").textContent = lp + "%";
+        document.getElementById("streakNum").textContent = pr.streak || 0;
+        document.getElementById("statLearned").textContent = pr.totalAttempts || 0;
+        document.getElementById("statStreak").textContent = pr.streak || 0;
+        document.getElementById("statAvg").textContent = (pr.avgScore || 0).toFixed(1);
+        document.getElementById("statProgress").textContent = pr.totalStudyMinutes || 0;
+        const scorePct = Math.round(((pr.avgScore || 0) / 10) * 100);
+        document.getElementById("progFill").style.width = scorePct + "%";
+        document.getElementById("progPct").textContent = scorePct + "%";
         document.getElementById("badgeStreak").textContent =
-          `${p.streak || 0} ngày streak`;
+          `${pr.streak || 0} ngày streak`;
         document.getElementById("badgeProgress").textContent =
-          `${p.progress || 0}% hoàn thành`;
+          `${pr.totalStudyMinutes || 0} phút học`;
         document.getElementById("badgeLearned").textContent =
-          `${p.learned || 0} câu đã học`;
+          `${pr.totalAttempts || 0} lượt luyện tập`;
         // Modal
         document.getElementById("modalName").textContent = p.name || "—";
-        document.getElementById("modalEmail").textContent = currentUser.email;
+        document.getElementById("modalEmail").textContent = p.email;
         document.getElementById("modalSub").textContent =
           sub || "Chưa cập nhật thông tin";
         document.getElementById("editName").value = p.name || "";
         document.getElementById("editCourse").value = p.course || "";
-        document.getElementById("editClass").value = p.class_name || "";
+        document.getElementById("editClass").value = p.className || "";
       }
 
       async function renderChart() {
-        const weekData = await getWeeklyStudyData(currentUser.id);
-        const avg = Math.round(weekData.reduce((s, v) => s + v, 0) / 7);
-        document.getElementById("avgMinutes").innerHTML =
-          `TB: <strong>${avg} phút</strong>/ngày`;
+        const weekLogs = await getWeeklyStudyData();
         const days = [];
+        const weekData = [];
         for (let i = 6; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
+          const iso = d.toISOString().slice(0, 10);
           days.push(["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d.getDay()]);
+          const found = weekLogs.find((l) => l.studyDate === iso);
+          weekData.push(found ? found.minutes : 0);
         }
+        const avg = Math.round(weekData.reduce((s, v) => s + v, 0) / 7);
+        document.getElementById("avgMinutes").innerHTML =
+          `TB: <strong>${avg} phút</strong>/ngày`;
         new Chart(document.getElementById("weekChart"), {
           type: "line",
           data: {
@@ -930,17 +859,13 @@
         });
       }
 
-      async function updateStreakOnLoad() {
-        const ns = await updateStreak(currentUser.id);
-        if (ns) {
-          document.getElementById("streakNum").textContent = ns;
-          document.getElementById("statStreak").textContent = ns;
-          document.getElementById("badgeStreak").textContent =
-            `${ns} ngày streak`;
-        }
-        const history = await getExamHistory(currentUser.id);
-        if (history.length > 0) {
-          const best = Math.max(...history.map((h) => parseFloat(h.score)));
+      async function renderAchievements() {
+        const results = await getMyQuizResults();
+        const examScores = results
+          .filter((r) => r.kind === "exam")
+          .map((r) => r.score);
+        if (examScores.length > 0) {
+          const best = Math.max(...examScores);
           document.getElementById("badgeBest").textContent =
             `Điểm cao nhất: ${best.toFixed(1)}`;
         } else {
@@ -955,8 +880,8 @@
         document.getElementById(id).classList.remove("show");
       }
       function dismissOnboarding() {
-        if (currentUser)
-          localStorage.setItem("onboarding_dismissed_" + currentUser.id, "1");
+        if (profile)
+          localStorage.setItem("onboarding_dismissed_" + profile.id, "1");
         closeModal("onboardingModal");
       }
 
@@ -967,8 +892,7 @@
           .toUpperCase();
         const course = document.getElementById("editCourse").value.trim();
         const cls = document.getElementById("editClass").value.trim();
-        await updateProfile(currentUser.id, { name, course, class_name: cls });
-        profile = await getProfile(currentUser.id);
+        profile = await updateProfile({ name, course, className: cls });
         renderUI();
         closeModal("profileModal");
       }

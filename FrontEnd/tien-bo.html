@@ -4,14 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Tiến bộ - Giảng viên Ảo TTHCM</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../style.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js"></script>
+    <script src="../api-client.js"></script>
     <style>
       .period-btn {
         padding: 7px 16px;
@@ -57,13 +56,6 @@
             onclick="setPeriod('week', this)"
           >
             7 ngày
-          </button>
-          <button
-            class="period-btn"
-            id="btnMonth"
-            onclick="setPeriod('month', this)"
-          >
-            30 ngày
           </button>
         </div>
 
@@ -194,77 +186,54 @@
       if (localStorage.getItem("darkMode") === "1")
         document.body.classList.add("dark");
 
-      let currentUser = null,
-        profile = null;
+      let profile = null,
+        myProgress = null;
       let timeChart = null,
         scoreChart = null;
       let weekData = [],
-        monthData = [];
-      let weekLabels = [],
-        monthLabels = [];
+        weekLabels = [];
 
       async function init() {
-        currentUser = await requireAuth();
-        if (!currentUser) return;
-        profile = await getProfile(currentUser.id);
-        if (!profile) return;
+        if (!requireAuth()) return;
+        profile = await getProfile();
+        myProgress = await getMyProgress();
 
         // Metrics
-        const totalMins = profile.total_study_minutes || 0;
-        document.getElementById("totalMins").textContent = totalMins;
-        document.getElementById("avgScoreDisplay").textContent = parseFloat(
-          profile.avg_score || 0,
-        ).toFixed(1);
+        document.getElementById("totalMins").textContent = myProgress.totalStudyMinutes || 0;
+        document.getElementById("avgScoreDisplay").textContent = (myProgress.avgScore || 0).toFixed(1);
 
         // Exam history
-        const examHistory = await getExamHistory(currentUser.id);
+        const results = await getMyQuizResults();
+        const examHistory = results.filter((r) => r.kind === "exam");
         document.getElementById("examCountDisplay").textContent =
           examHistory.length;
 
         // Study logs - 7 ngày
-        const w7 = await getWeeklyStudyData(currentUser.id);
-        weekData = w7;
+        const logs = await getWeeklyStudyData();
         weekLabels = [];
+        weekData = [];
         for (let i = 6; i >= 0; i--) {
           const d = new Date();
           d.setDate(d.getDate() - i);
+          const iso = d.toISOString().slice(0, 10);
           weekLabels.push(
             ["CN", "T2", "T3", "T4", "T5", "T6", "T7"][d.getDay()],
           );
+          const found = logs.find((l) => l.studyDate === iso);
+          weekData.push(found ? found.minutes : 0);
         }
-
-        // Study logs - 30 ngày (grouped by week)
-        const thirtyDays = [];
-        for (let i = 29; i >= 0; i--) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          thirtyDays.push(d.toISOString().split("T")[0]);
-        }
-        const { data: logs30 } = await sb
-          .from("study_logs")
-          .select("study_date,minutes")
-          .eq("user_id", currentUser.id)
-          .in("study_date", thirtyDays);
-        // Group into 4 weeks
-        monthData = [0, 0, 0, 0];
-        monthLabels = ["Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4"];
-        thirtyDays.forEach((date, idx) => {
-          const week = Math.floor(idx / 7);
-          const found = (logs30 || []).find((r) => r.study_date === date);
-          if (found) monthData[week] += found.minutes;
-        });
 
         drawTimeChart("week");
         drawScoreChart(examHistory);
-        drawBadges(profile, examHistory);
+        drawBadges(myProgress, examHistory);
       }
 
       function drawTimeChart(period) {
-        const labels = period === "week" ? weekLabels : monthLabels;
-        const data = period === "week" ? weekData : monthData;
+        const labels = weekLabels;
+        const data = weekData;
         const avg = Math.round(data.reduce((s, v) => s + v, 0) / data.length);
         document.getElementById("chartSubtitle").textContent =
-          `Trung bình: ${avg} phút/${period === "week" ? "ngày" : "tuần"}`;
+          `Trung bình: ${avg} phút/ngày`;
 
         if (timeChart) timeChart.destroy();
         timeChart = new Chart(document.getElementById("timeChart"), {
@@ -310,13 +279,13 @@
         scoreChart = new Chart(document.getElementById("scoreChart"), {
           type: "bar",
           data: {
-            labels: recent.map((h) => formatDate(h.created_at)),
+            labels: recent.map((h) => formatDate(h.createdAtUtc)),
             datasets: [
               {
                 label: "Điểm",
-                data: recent.map((h) => parseFloat(h.score)),
+                data: recent.map((h) => h.score),
                 backgroundColor: recent.map((h) =>
-                  parseFloat(h.score) >= 5
+                  h.score >= 5
                     ? "rgba(198,40,40,0.8)"
                     : "rgba(198,40,40,0.3)",
                 ),
@@ -344,9 +313,9 @@
       function drawBadges(p, examHistory) {
         const streak = p.streak || 0;
         const best = examHistory.length
-          ? Math.max(...examHistory.map((h) => parseFloat(h.score)))
+          ? Math.max(...examHistory.map((h) => h.score))
           : 0;
-        const quizCount = p.learned || 0;
+        const attemptCount = p.totalAttempts || 0;
         const badges = [
           {
             icon: "🔥",
@@ -362,15 +331,15 @@
           },
           {
             icon: "📚",
-            label: "Học 100 bài",
-            desc: `Đã học: ${quizCount} bài`,
-            earned: quizCount >= 100,
+            label: "Luyện tập 100 lượt",
+            desc: `Đã luyện tập: ${attemptCount} lượt`,
+            earned: attemptCount >= 100,
           },
           {
             icon: "🏆",
-            label: "Hoàn thành 50%",
-            desc: `Tiến độ: ${p.progress || 0}%`,
-            earned: (p.progress || 0) >= 50,
+            label: "Học 300 phút",
+            desc: `Thời gian học: ${p.totalStudyMinutes || 0} phút`,
+            earned: (p.totalStudyMinutes || 0) >= 300,
           },
           {
             icon: "💯",
@@ -381,8 +350,8 @@
           {
             icon: "🎯",
             label: "Chuyên gia TTHCM",
-            desc: "Hoàn thành 100% khóa học",
-            earned: (p.progress || 0) >= 100,
+            desc: "Học 1000 phút",
+            earned: (p.totalStudyMinutes || 0) >= 1000,
           },
           {
             icon: "⚡",

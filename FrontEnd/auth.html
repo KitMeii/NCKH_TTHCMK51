@@ -4,13 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Đăng nhập - Giảng viên Ảo TTHCM</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../style.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js"></script>
+    <script src="../api-client.js"></script>
     <style>
       body {
         padding: 0;
@@ -354,12 +353,7 @@
 
     <script>
       // Nếu đã đăng nhập → vào thẳng trang chủ
-      (async () => {
-        const {
-          data: { session },
-        } = await sb.auth.getSession();
-        if (session) window.location.href = "index.html";
-      })();
+      if (isAuthenticated()) window.location.href = "index.html";
 
       function switchTab(tab) {
         document.getElementById("loginForm").style.display = "none";
@@ -417,22 +411,14 @@
           return showAlert("Vui lòng nhập đầy đủ email và mật khẩu.");
 
         setLoading("loginBtn", true);
-        const { error } = await sb.auth.signInWithPassword({
-          email,
-          password: pass,
-        });
-        setLoading("loginBtn", false);
-
-        if (error) {
-          const msgs = {
-            "Invalid login credentials": "Email hoặc mật khẩu không đúng.",
-            "Email not confirmed":
-              "Vui lòng xác nhận email trước khi đăng nhập.",
-          };
-          showAlert(msgs[error.message] || error.message);
-        } else {
+        try {
+          await login(email, pass);
           showAlert("Đăng nhập thành công! Đang chuyển trang...", "success");
           setTimeout(() => (window.location.href = "index.html"), 800);
+        } catch (err) {
+          showAlert(err.message || "Đăng nhập thất bại.");
+        } finally {
+          setLoading("loginBtn", false);
         }
       }
 
@@ -449,46 +435,29 @@
 
         if (!name || !email || !pass)
           return showAlert("Vui lòng nhập đầy đủ thông tin bắt buộc.");
-        if (pass.length < 6) return showAlert("Mật khẩu cần ít nhất 6 ký tự.");
+        if (pass.length < 8) return showAlert("Mật khẩu cần ít nhất 8 ký tự.");
 
         setLoading("regBtn", true);
-        const { data, error } = await sb.auth.signUp({
-          email,
-          password: pass,
-          options: { data: { name, course, class_name: cls } },
-        });
-        setLoading("regBtn", false);
-
-        if (error) {
-          const msgs = {
-            "User already registered": "Email này đã được đăng ký.",
-          };
-          showAlert(msgs[error.message] || error.message);
-          return;
+        try {
+          await register(email, pass, name);
+          if (course || cls) {
+            await updateProfile({ name, course, className: cls });
+          }
+          showAlert("Tạo tài khoản thành công! Đang đăng nhập...", "success");
+          setTimeout(() => (window.location.href = "index.html"), 1000);
+        } catch (err) {
+          showAlert(err.message || "Đăng ký thất bại.");
+        } finally {
+          setLoading("regBtn", false);
         }
-
-        // Cập nhật profile với thông tin đầy đủ
-        if (data.user) {
-          await updateProfile(data.user.id, { name, course, class_name: cls });
-        }
-
-        showAlert("Tạo tài khoản thành công! Đang đăng nhập...", "success");
-        setTimeout(() => (window.location.href = "index.html"), 1000);
       }
 
-      async function doForgot() {
-        const email = document.getElementById("forgotEmail").value.trim();
-        if (!email) return showAlert("Vui lòng nhập email.");
-        const { error } = await sb.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin + "/auth.html",
-        });
-        if (error) {
-          showAlert(error.message);
-          return;
-        }
+      function doForgot() {
+        // Đặt lại mật khẩu qua email chưa được triển khai ở phiên bản backend hiện tại
+        // (chưa có hạ tầng gửi email) — báo rõ cho học viên thay vì giả vờ đã gửi.
         showAlert(
-          "Đã gửi email đặt lại mật khẩu. Vui lòng kiểm tra hộp thư!",
-          "success",
+          "Tính năng đặt lại mật khẩu qua email chưa khả dụng. Vui lòng liên hệ quản trị viên để được hỗ trợ.",
+          "error",
         );
       }
 
