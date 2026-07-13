@@ -19,8 +19,8 @@ builder.AddSharedObservability("quiz-service");
 var connectionString = builder.Configuration.GetConnectionString("QuizDb")
     ?? throw new InvalidOperationException("Missing ConnectionStrings:QuizDb configuration.");
 
-builder.Services.AddDbContext<QuizDbContext>(options => options.UseNpgsql(connectionString));
-builder.Services.AddSharedHealthChecks(connectionString);
+builder.Services.AddDbContext<QuizDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddSharedHealthChecksSqlServer(connectionString);
 
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddSharedCors(builder.Configuration);

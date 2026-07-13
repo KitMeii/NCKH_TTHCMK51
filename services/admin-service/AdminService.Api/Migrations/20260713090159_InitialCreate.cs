@@ -19,12 +19,12 @@ namespace AdminService.Api.Migrations
                 schema: "admin",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    AdminUserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    TargetUserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    OldRole = table.Column<string>(type: "text", nullable: false),
-                    NewRole = table.Column<string>(type: "text", nullable: false),
-                    ChangedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    AdminUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TargetUserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    OldRole = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    NewRole = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    ChangedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -36,10 +36,10 @@ namespace AdminService.Api.Migrations
                 schema: "admin",
                 columns: table => new
                 {
-                    Key = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
-                    Value = table.Column<string>(type: "text", nullable: false),
-                    UpdatedBy = table.Column<Guid>(type: "uuid", nullable: false),
-                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    Key = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: false),
+                    Value = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    UpdatedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {

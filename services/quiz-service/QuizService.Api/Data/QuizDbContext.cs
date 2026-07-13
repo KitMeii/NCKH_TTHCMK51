@@ -36,7 +36,7 @@ public sealed class QuizDbContext(DbContextOptions<QuizDbContext> options) : DbC
         {
             entity.ToTable("oral_results");
             entity.HasKey(r => r.Id);
-            entity.Property(r => r.AiScore).HasColumnType("numeric(4,2)");
+            entity.Property(r => r.AiScore).HasColumnType("decimal(4,2)");
             entity.HasIndex(r => r.UserId);
             entity.HasOne<OralQuestion>().WithMany().HasForeignKey(r => r.QuestionId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -45,7 +45,7 @@ public sealed class QuizDbContext(DbContextOptions<QuizDbContext> options) : DbC
         {
             entity.ToTable("exam_results");
             entity.HasKey(r => r.Id);
-            entity.Property(r => r.Score).HasColumnType("numeric(4,2)");
+            entity.Property(r => r.Score).HasColumnType("decimal(4,2)");
             entity.HasIndex(r => r.UserId);
         });
 
@@ -53,7 +53,7 @@ public sealed class QuizDbContext(DbContextOptions<QuizDbContext> options) : DbC
         {
             entity.ToTable("quiz_results");
             entity.HasKey(r => r.Id);
-            entity.Property(r => r.Score).HasColumnType("numeric(4,2)");
+            entity.Property(r => r.Score).HasColumnType("decimal(4,2)");
             entity.Property(r => r.Chapter).HasMaxLength(128);
             entity.HasIndex(r => r.UserId);
         });

@@ -1,7 +1,8 @@
-# Dev/test orchestration for all 6 services + gateway + Postgres + Seq, per the approved
-# migration plan (Bước 5.1). Only the gateway is published to the host — every other service is
-# reachable solely over the internal "tthcm-net" network, which is what lets each service trust
-# the X-User-Id/X-User-Role headers the gateway forwards (see Shared.Contracts.HeaderNames).
+# Dev/test orchestration for all 6 services + gateway + SQL Server + Seq, per the approved
+# migration plan (Bước 5.1, DB engine switched Postgres->SQL Server per Bước 0.1-0.2). Only the
+# gateway is published to the host — every other service is reachable solely over the internal
+# "tthcm-net" network, which is what lets each service trust the X-User-Id/X-User-Role headers
+# the gateway forwards (see Shared.Contracts.HeaderNames).
 #
 # Usage: cp .env.example .env, fill in real values, then `docker compose up --build`.
 
@@ -10,7 +11,7 @@ networks:
     driver: bridge
 
 volumes:
-  postgres-data:
+  mssql-data:
   seq-data:
 
 x-service-defaults: &service-defaults
@@ -20,7 +21,7 @@ x-service-defaults: &service-defaults
     - tthcm-net
   restart: unless-stopped
   depends_on:
-    postgres:
+    mssql:
       condition: service_healthy
   environment:
     &default-env
@@ -32,23 +33,23 @@ x-service-defaults: &service-defaults
     Database__AutoMigrate: "true"
 
 services:
-  postgres:
-    image: postgres:16-alpine
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
-      POSTGRES_DB: tthcm
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD}
+      MSSQL_PID: Express
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - mssql-data:/var/opt/mssql
     ports:
-      - "5432:5432"
+      - "1433:1433"
     networks:
       - tthcm-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' -b -o /dev/null || exit 1"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
 
   seq:
     image: datalust/seq:latest
@@ -70,7 +71,7 @@ services:
       dockerfile: services/auth-service/AuthService.Api/Dockerfile
     environment:
       <<: *default-env
-      ConnectionStrings__AuthDb: Host=postgres;Port=5432;Database=tthcm;Username=postgres;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__AuthDb: Server=mssql,1433;Database=tthcm;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
       Seed__Enabled: ${SEED_DEMO_ACCOUNTS:-false}
 
   content-service:
@@ -80,7 +81,7 @@ services:
       dockerfile: services/content-service/ContentService.Api/Dockerfile
     environment:
       <<: *default-env
-      ConnectionStrings__ContentDb: Host=postgres;Port=5432;Database=tthcm;Username=postgres;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__ContentDb: Server=mssql,1433;Database=tthcm;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
 
   quiz-service:
     <<: *service-defaults
@@ -89,7 +90,7 @@ services:
       dockerfile: services/quiz-service/QuizService.Api/Dockerfile
     environment:
       <<: *default-env
-      ConnectionStrings__QuizDb: Host=postgres;Port=5432;Database=tthcm;Username=postgres;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__QuizDb: Server=mssql,1433;Database=tthcm;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
 
   ai-service:
     <<: *service-defaults
@@ -108,7 +109,7 @@ services:
       dockerfile: services/progress-service/ProgressService.Api/Dockerfile
     environment:
       <<: *default-env
-      ConnectionStrings__ProgressDb: Host=postgres;Port=5432;Database=tthcm;Username=postgres;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__ProgressDb: Server=mssql,1433;Database=tthcm;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
 
   admin-service:
     <<: *service-defaults
@@ -117,7 +118,7 @@ services:
       dockerfile: services/admin-service/AdminService.Api/Dockerfile
     environment:
       <<: *default-env
-      ConnectionStrings__AdminDb: Host=postgres;Port=5432;Database=tthcm;Username=postgres;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__AdminDb: Server=mssql,1433;Database=tthcm;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
 
   gateway:
     build:

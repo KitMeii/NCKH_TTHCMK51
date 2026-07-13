@@ -23,7 +23,7 @@ public sealed class ProgressDbContext(DbContextOptions<ProgressDbContext> option
         {
             entity.ToTable("student_progress");
             entity.HasKey(p => p.UserId);
-            entity.Property(p => p.ScoreSum).HasColumnType("numeric(10,2)");
+            entity.Property(p => p.ScoreSum).HasColumnType("decimal(10,2)");
         });
     }
 }

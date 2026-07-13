@@ -17,8 +17,8 @@ builder.AddSharedObservability("content-service");
 var connectionString = builder.Configuration.GetConnectionString("ContentDb")
     ?? throw new InvalidOperationException("Missing ConnectionStrings:ContentDb configuration.");
 
-builder.Services.AddDbContext<ContentDbContext>(options => options.UseNpgsql(connectionString));
-builder.Services.AddSharedHealthChecks(connectionString);
+builder.Services.AddDbContext<ContentDbContext>(options => options.UseSqlServer(connectionString));
+builder.Services.AddSharedHealthChecksSqlServer(connectionString);
 
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddSharedCors(builder.Configuration);

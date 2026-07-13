@@ -19,13 +19,13 @@ namespace ProgressService.Api.Migrations
                 schema: "progress",
                 columns: table => new
                 {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Streak = table.Column<int>(type: "integer", nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Streak = table.Column<int>(type: "int", nullable: false),
                     LastStudyDate = table.Column<DateOnly>(type: "date", nullable: true),
-                    TotalStudyMinutes = table.Column<int>(type: "integer", nullable: false),
-                    TotalAttempts = table.Column<int>(type: "integer", nullable: false),
-                    ScoreSum = table.Column<decimal>(type: "numeric(10,2)", nullable: false),
-                    UpdatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    TotalStudyMinutes = table.Column<int>(type: "int", nullable: false),
+                    TotalAttempts = table.Column<int>(type: "int", nullable: false),
+                    ScoreSum = table.Column<decimal>(type: "decimal(10,2)", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -37,11 +37,11 @@ namespace ProgressService.Api.Migrations
                 schema: "progress",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     StudyDate = table.Column<DateOnly>(type: "date", nullable: false),
-                    Minutes = table.Column<int>(type: "integer", nullable: false),
-                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    Minutes = table.Column<int>(type: "int", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {

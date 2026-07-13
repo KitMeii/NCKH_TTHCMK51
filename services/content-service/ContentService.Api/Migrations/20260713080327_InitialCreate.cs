@@ -19,17 +19,17 @@ namespace ContentService.Api.Migrations
                 schema: "content",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Title = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
-                    Chapter = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    Description = table.Column<string>(type: "text", nullable: true),
-                    FileName = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
-                    FileUrl = table.Column<string>(type: "text", nullable: false),
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: false),
+                    Chapter = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    FileName = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: false),
+                    FileUrl = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     FileSize = table.Column<long>(type: "bigint", nullable: false),
-                    UploadedBy = table.Column<Guid>(type: "uuid", nullable: false),
-                    IsActive = table.Column<bool>(type: "boolean", nullable: false),
-                    ViewCount = table.Column<int>(type: "integer", nullable: false),
-                    CreatedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    UploadedBy = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    ViewCount = table.Column<int>(type: "int", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {
