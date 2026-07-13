@@ -5,7 +5,7 @@ namespace Shared.Infrastructure.Data;
 
 /// <summary>
 /// Applies pending EF Core migrations with a short retry loop. Needed because in docker-compose,
-/// a service's container can start before Postgres has finished accepting connections — a bare
+/// a service's container can start before the database has finished accepting connections — a bare
 /// `db.Database.Migrate()` on first boot would crash the whole process on that transient race
 /// instead of just waiting it out.
 /// </summary>

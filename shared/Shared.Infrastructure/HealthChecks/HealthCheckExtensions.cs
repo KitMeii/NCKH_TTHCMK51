@@ -1,5 +1,6 @@
 using System.Text.Json;
 using HealthChecks.NpgSql;
+using HealthChecks.SqlServer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
@@ -16,6 +17,9 @@ public static class HealthCheckExtensions
     /// Registers the standard health checks: an always-pass liveness check plus, if
     /// `connectionString` is provided, a Postgres readiness check tagged "ready".
     /// </summary>
+    // TODO(0.2): every service is moving off Postgres onto SQL Server (see AddSharedHealthChecksSqlServer
+    // below, added for auth-service's pilot migration) — once all 6 services have switched, delete this
+    // overload and the Npgsql health-check package, and fold the SqlServer path into the one method.
     public static IServiceCollection AddSharedHealthChecks(this IServiceCollection services, string? connectionString)
     {
         var builder = services.AddHealthChecks();
@@ -23,6 +27,22 @@ public static class HealthCheckExtensions
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
             builder.AddNpgSql(connectionString, name: "postgres", tags: [ReadyTag]);
+        }
+
+        return services;
+    }
+
+    /// <summary>
+    /// SQL Server counterpart of <see cref="AddSharedHealthChecks"/>, used by services that have
+    /// migrated off Postgres (auth-service first, see Part 0.1/0.2 of the DB migration).
+    /// </summary>
+    public static IServiceCollection AddSharedHealthChecksSqlServer(this IServiceCollection services, string? connectionString)
+    {
+        var builder = services.AddHealthChecks();
+
+        if (!string.IsNullOrWhiteSpace(connectionString))
+        {
+            builder.AddSqlServer(connectionString, name: "sqlserver", tags: [ReadyTag]);
         }
 
         return services;
