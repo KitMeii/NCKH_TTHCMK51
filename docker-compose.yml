@@ -61,9 +61,13 @@ services:
     volumes:
       - seq-data:/data
     ports:
-      # Dev-only convenience to browse logs at http://localhost:8081 — do not publish this port
-      # in a real deployment; Seq has no auth configured here.
-      - "8081:80"
+      # Dev-only convenience to browse logs at http://localhost:8081. Bound to 127.0.0.1 only —
+      # "8081:80" alone binds 0.0.0.0 (reachable from the LAN/any interface), which combined with
+      # SEQ_FIRSTRUN_NOAUTHENTICATION above would mean anyone on the same network can read every
+      # log line (including request bodies Serilog captures). Do not remove this loopback binding
+      # without adding real auth. On a real deploy (Railway, Phần 5): do not give this service a
+      # public domain/port at all — only the gateway should be internet-reachable.
+      - "127.0.0.1:8081:80"
     networks:
       - tthcm-net
 
