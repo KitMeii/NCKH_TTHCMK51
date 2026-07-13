@@ -55,6 +55,9 @@ services:
     image: datalust/seq:latest
     environment:
       ACCEPT_EULA: "Y"
+      # Recent Seq versions refuse to start on first run without one of these set. Dev-only stack,
+      # not exposed beyond localhost (see the port comment below), so no-auth is intentional here.
+      SEQ_FIRSTRUN_NOAUTHENTICATION: "true"
     volumes:
       - seq-data:/data
     ports:
