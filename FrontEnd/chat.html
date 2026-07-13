@@ -4,13 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Chat AI - Giảng viên Ảo TTHCM</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../style.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js"></script>
+    <script src="../api-client.js"></script>
     <style>
       body {
         padding-top: 70px;
@@ -720,17 +719,6 @@
 
     <main>
       <div class="chat-wrap">
-        <!-- Groq key bar -->
-        <div class="key-bar" id="keyBar" style="display: none">
-          <span class="key-bar-label">🔑 Groq Key:</span>
-          <input
-            id="groqKeyInput"
-            type="password"
-            placeholder="gsk_xxxxxxxxxxxx"
-          />
-          <button onclick="saveKey()">Lưu</button>
-        </div>
-
         <!-- Chat header -->
         <div class="chat-top">
           <button class="hist-btn" onclick="openSidebar()" title="Lịch sử chat">
@@ -846,12 +834,9 @@
         document.body.classList.add("dark");
 
       // ── STATE ──
-      let currentUser = null;
-      let groqKey = localStorage.getItem("groqKey") || "";
       let chatHistory = []; // messages of current session [{role,content}]
       let webMode = false;
       let isLoading = false;
-      let currentSystemPrompt = "";
 
       // ── SESSION MANAGEMENT ──
       // sessions: { id, title, createdAt, updatedAt, messages[] }
@@ -1036,49 +1021,15 @@
         document.getElementById("sidebarOverlay").classList.remove("show");
       }
 
-      // ── SYSTEM PROMPT ──
-      const SYSTEM_PROMPT_BASE = `Bạn là Giảng viên Ảo chuyên về môn Tư tưởng Hồ Chí Minh (TTHCM) tại Học viện Kỹ thuật Quân sự Việt Nam.
-Nhiệm vụ: Giải thích, phân tích, hướng dẫn học tập môn TTHCM một cách sâu sắc và dễ hiểu.
-Phong cách: Nghiêm túc nhưng gần gũi, dùng ngôn ngữ học thuật phù hợp, luôn trả lời bằng tiếng Việt.
-Định dạng: Dùng **in đậm** cho khái niệm quan trọng, > blockquote cho trích dẫn, - bullets cho liệt kê.
-Nếu câu hỏi ngoài phạm vi TTHCM, hãy nhẹ nhàng hướng về chủ đề môn học.`;
-
-      currentSystemPrompt = SYSTEM_PROMPT_BASE;
-
-      function buildSystemPrompt(profile) {
-        if (!profile) return SYSTEM_PROMPT_BASE;
-        const sub = [profile.course, profile.class_name]
-          .filter(Boolean)
-          .join(", ");
-        return `${SYSTEM_PROMPT_BASE}
-
---- THÔNG TIN HỌC VIÊN ---
-Tên: ${profile.name || "Học viên"}${sub ? " · " + sub : ""}
-Tiến độ học: ${profile.progress || 0}% · Điểm TB thi thử: ${parseFloat(profile.avg_score || 0).toFixed(1)}/10 · Streak: ${profile.streak || 0} ngày
-Chương đang học: ${profile.current_lesson || "Chương 1 - Khái niệm cơ bản"}
-
-→ Khi phù hợp, hãy gợi ý học viên ôn luyện nội dung liên quan đến chương đang học.
-→ Nếu điểm TB < 5, hãy khuyến khích và nhấn mạnh các khái niệm cơ bản.
-→ Xưng hô thân thiện với tên học viên khi mở đầu câu trả lời.`;
-      }
-
       // ── INIT ──
+      // System prompt (giọng văn, phạm vi trả lời) giờ cố định ở server (ai-service/ChatService)
+      // — client không còn tự soạn/gửi system prompt, tránh học viên chèn prompt injection.
       async function init() {
-        currentUser = await requireAuth();
-        if (!currentUser) return;
+        if (!requireAuth()) return;
 
-        const profile = await getProfile(currentUser.id);
-        if (profile) {
-          document.getElementById("modelLabel").textContent =
-            `Llama 3.3 · ${profile.name || "Học viên"}`;
-          if (profile.groq_api_key) {
-            groqKey = profile.groq_api_key;
-            localStorage.setItem("groqKey", groqKey);
-          }
-          currentSystemPrompt = buildSystemPrompt(profile);
-        }
-        if (!groqKey) groqKey = localStorage.getItem("groqKey") || "";
-        if (!groqKey) document.getElementById("keyBar").style.display = "flex";
+        const profile = await getProfile();
+        document.getElementById("modelLabel").textContent =
+          `Llama 3.3 · ${profile.name || "Học viên"}`;
 
         // Load sessions
         loadSessions();
@@ -1095,20 +1046,7 @@ Chương đang học: ${profile.current_lesson || "Chương 1 - Khái niệm cơ
           newChat();
         }
 
-        if (currentUser) logStudyTime(currentUser.id, 3);
-      }
-
-      function saveKey() {
-        const k = document.getElementById("groqKeyInput").value.trim();
-        if (!k.startsWith("gsk_") && !k.startsWith("sk-"))
-          return alert("Key không hợp lệ!");
-        groqKey = k;
-        localStorage.setItem("groqKey", k);
-        document.getElementById("keyBar").style.display = "none";
-        addMsg(
-          "✅ Đã kết nối Groq AI! Tôi sẵn sàng trả lời mọi câu hỏi của bạn.",
-          "bot",
-        );
+        logStudyTime(3).catch(() => {});
       }
 
       function toggleWebMode() {
@@ -1196,21 +1134,22 @@ Chương đang học: ${profile.current_lesson || "Chương 1 - Khái niệm cơ
 
         chatHistory.push({ role: "user", content: text });
 
-        let reply = "",
-          sources = [];
-
-        if (!groqKey) {
-          reply = fallbackAnswer(text);
-        } else {
-          if (webMode) {
-            const searchResults = await duckDuckGoSearch(text);
-            sources = searchResults.sources;
-            if (searchResults.context) {
-              chatHistory[chatHistory.length - 1].content =
-                `${text}\n\n[Thông tin từ web:\n${searchResults.context}]`;
-            }
+        let sources = [];
+        if (webMode) {
+          const searchResults = await duckDuckGoSearch(text);
+          sources = searchResults.sources;
+          if (searchResults.context) {
+            chatHistory[chatHistory.length - 1].content =
+              `${text}\n\n[Thông tin từ web:\n${searchResults.context}]`;
           }
-          reply = (await callGroq()) || fallbackAnswer(text);
+        }
+
+        let reply;
+        try {
+          const result = await chatWithAI(chatHistory.slice(-12));
+          reply = result.reply;
+        } catch (err) {
+          reply = "⚠️ Không thể kết nối trợ lý AI lúc này: " + err.message;
         }
 
         hideTyping();
@@ -1220,41 +1159,7 @@ Chương đang học: ${profile.current_lesson || "Chương 1 - Khái niệm cơ
 
         isLoading = false;
         document.getElementById("sendBtn").disabled = false;
-        if (currentUser) logStudyTime(currentUser.id, 1);
-      }
-
-      async function callGroq() {
-        try {
-          const res = await fetch(
-            "https://api.groq.com/openai/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${groqKey}`,
-              },
-              body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
-                messages: [
-                  { role: "system", content: currentSystemPrompt },
-                  ...chatHistory.slice(-12),
-                ],
-                max_tokens: 1024,
-                temperature: 0.7,
-                stream: false,
-              }),
-            },
-          );
-          const data = await res.json();
-          if (data.error) {
-            console.error(data.error);
-            return null;
-          }
-          return data.choices?.[0]?.message?.content || null;
-        } catch (e) {
-          console.error(e);
-          return null;
-        }
+        logStudyTime(1).catch(() => {});
       }
 
       async function duckDuckGoSearch(query) {
@@ -1288,37 +1193,6 @@ Chương đang học: ${profile.current_lesson || "Chương 1 - Khái niệm cơ
         } catch {
           return { context: "", sources: [] };
         }
-      }
-
-      const FALLBACK = [
-        {
-          q: ["tư tưởng hồ chí minh", "định nghĩa", "khái niệm"],
-          a: "**Tư tưởng Hồ Chí Minh** là hệ thống quan điểm toàn diện và sâu sắc về những vấn đề cơ bản của cách mạng Việt Nam.\n\nĐây là kết quả của sự vận dụng **sáng tạo** và phát triển chủ nghĩa Mác - Lênin vào điều kiện cụ thể của Việt Nam.",
-        },
-        {
-          q: ["đạo đức", "cần kiệm liêm chính", "đức"],
-          a: "**Đạo đức cách mạng** theo HCM bao gồm:\n\n1. **Trung với nước, hiếu với dân**\n2. **Cần, Kiệm, Liêm, Chính, Chí công vô tư**\n3. **Yêu thương con người** rộng lớn\n4. **Tinh thần quốc tế trong sáng**",
-        },
-        {
-          q: ["độc lập", "cnxh", "chủ nghĩa xã hội"],
-          a: '**Độc lập dân tộc gắn liền với CNXH** là sợi chỉ đỏ xuyên suốt tư tưởng HCM.\n\n> "Không có gì quý hơn độc lập, tự do" — HCM',
-        },
-        {
-          q: ["phong cách", "lãnh đạo", "làm việc"],
-          a: "**Phong cách Hồ Chí Minh** thể hiện ở:\n\n1. **Tư duy**: Độc lập, tự chủ, sáng tạo\n2. **Làm việc**: Khoa học, dân chủ, sâu sát quần chúng\n3. **Diễn đạt**: Ngắn gọn, súc tích, dễ hiểu\n4. **Sinh hoạt**: Giản dị, tiết kiệm, gần dân",
-        },
-        {
-          q: ["nhà nước", "quyền lực", "của dân"],
-          a: '**Nhà nước của dân, do dân, vì dân** — quan điểm cốt lõi:\n\n1. Quyền lực nhà nước thuộc về nhân dân\n2. Cán bộ là **"công bộc"** của nhân dân\n3. Xây dựng nhà nước pháp quyền có hiệu lực mạnh\n4. Chống quan liêu, tham nhũng, lãng phí',
-        },
-      ];
-
-      function fallbackAnswer(text) {
-        const lower = text.toLowerCase();
-        for (const item of FALLBACK) {
-          if (item.q.some((k) => lower.includes(k))) return item.a;
-        }
-        return "Cảm ơn câu hỏi! Để trả lời chính xác nhất, bạn vui lòng nhập **Groq API Key** (miễn phí tại console.groq.com).\n\nBạn có thể hỏi về: Tư tưởng HCM, Đạo đức cách mạng, Độc lập & CNXH, Phong cách HCM, Nhà nước nhân dân.";
       }
 
       function sendChip(text) {
