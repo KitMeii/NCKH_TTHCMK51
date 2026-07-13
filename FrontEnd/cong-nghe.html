@@ -8,6 +8,7 @@
       href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
+    <script src="../api-client.js"></script>
     <style>
       :root {
         --bg: #09090f;
@@ -1417,5 +1418,17 @@
         ><i class="fas fa-shield-alt"></i><span>Admin</span></a
       >
     </nav>
+    <script>
+      // Tài liệu tech stack nội bộ — chỉ Giảng viên/Admin được xem (khắc phục F7: trang này
+      // trước đây public hoàn toàn, không cần đăng nhập).
+      (function guardAccess() {
+        if (!requireAuth()) return;
+        const session = getSession();
+        if (!session || !["Teacher", "Admin"].includes(session.user.role)) {
+          alert("⚠️ Trang tài liệu kỹ thuật chỉ dành cho Giảng viên/Admin.");
+          window.location.href = "index.html";
+        }
+      })();
+    </script>
   </body>
 </html>

@@ -267,6 +267,14 @@ function getLeaderboard(top = 30) {
 function chatWithAI(messages) {
   return apiFetch("/api/v1/ai/chat", { method: "POST", body: { messages } });
 }
+
+/** Tiện ích gọi chatbot với 1 prompt đơn (dùng cho các tác vụ AI phụ, không có endpoint
+ * riêng — vd tóm tắt giọng nói, sinh câu hỏi phụ trong vấn đáp — KHÔNG dùng cho việc chấm
+ * điểm chính thức, việc đó luôn phải qua endpoint chuyên biệt như /grade-oral. */
+async function askAI(prompt) {
+  const result = await chatWithAI([{ role: "user", content: prompt }]);
+  return result.reply;
+}
 function generateLecture(chapter, topic, sourceText) {
   return apiFetch("/api/v1/ai/generate-lecture", { method: "POST", body: { chapter, topic, sourceText } });
 }

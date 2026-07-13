@@ -1773,8 +1773,7 @@ Gợi ý đúng: ${hint}
 Câu trả lời của học viên: ${answer || "(Không trả lời)"}
 
 Hãy đánh giá ngắn gọn (2-3 câu), chỉ ra điểm đúng và thiếu sót. Bắt đầu bằng ✅ nếu tốt hoặc 💬 nếu cần bổ sung.`;
-          const result = await chatWithAI([{ role: "user", content: prompt }]);
-          const text = result.reply;
+          const text = await askAI(prompt);
           const isGood = text.includes("✅") || text.toLowerCase().includes("tốt");
           return { good: isGood, text: text || `💡 Gợi ý: ${hint}` };
         } catch {

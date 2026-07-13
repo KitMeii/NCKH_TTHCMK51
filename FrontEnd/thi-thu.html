@@ -4,13 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Thi thử - Giảng viên Ảo TTHCM</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="../style.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="supabase-config.js"></script>
+    <script src="../api-client.js"></script>
     <style>
       .exam-tab {
         flex: 1;
@@ -685,25 +684,6 @@
                   xét
                 </div>
               </div>
-              <div
-                style="
-                  background: #fff3e0;
-                  border: 1px solid #ffe082;
-                  border-radius: 10px;
-                  padding: 10px 14px;
-                  font-size: 0.78rem;
-                  color: #5d4037;
-                  text-align: left;
-                  margin-bottom: 14px;
-                "
-              >
-                <i
-                  class="fas fa-key"
-                  style="color: #f57f17; margin-right: 5px"
-                ></i>
-                Cần <strong>Groq API Key</strong> để AI chấm điểm. Nếu chưa có,
-                hệ thống sẽ dùng chấm tự động cơ bản.
-              </div>
               <button
                 class="btn btn-full"
                 style="
@@ -916,8 +896,6 @@
       if (localStorage.getItem("darkMode") === "1")
         document.body.classList.add("dark");
       const LETTERS = ["A", "B", "C", "D"];
-      let currentUser = null;
-      let groqKey = localStorage.getItem("groqKey") || "";
 
       // ===== TN State =====
       let tnQuestions = [],
@@ -941,15 +919,9 @@
       }
 
       async function init() {
-        currentUser = await requireAuth();
-        if (!currentUser) return;
-        // Load Groq key từ Supabase profile (ưu tiên hơn localStorage)
-        const profile = await getProfile(currentUser.id);
-        if (profile?.groq_api_key) {
-          groqKey = profile.groq_api_key;
-          localStorage.setItem("groqKey", groqKey);
-        }
+        if (!requireAuth()) return;
         loadHistory();
+        loadMaterialsForExam();
       }
 
       function switchMode(mode) {
@@ -966,42 +938,39 @@
       }
 
       // ======================== LOAD POOL ========================
+      // Không còn fallback "câu hỏi mẫu" nhúng sẵn: mỗi câu phải có id thật trong quiz-service
+      // để có thể nộp bài và được chấm ở server (xem ghi chú F3 ở luyen-tap.html) — nếu ngân
+      // hàng câu hỏi trống, báo rõ cho học viên thay vì thi với câu hỏi không chấm được.
       async function loadPool(count) {
-        // Lấy từ Supabase
-        const { data } = await sb.from("questions").select("*").limit(500);
-        let pool = [];
-        if (data && data.length > 0) {
-          pool = data.map((q) => ({
-            q: q.question,
-            opts: [q.option_a, q.option_b, q.option_c, q.option_d].filter(
-              Boolean,
-            ),
-            ans: q.correct_answer,
-            exp: q.explanation || "",
-          }));
-        }
-        // Chỉ dùng built-in nếu DB chưa có câu hỏi thật
-        if (pool.length === 0) {
-          console.warn("Chưa có câu hỏi trong DB, dùng câu hỏi mẫu tạm thời");
-          pool = [...BUILTIN_POOL];
-        }
+        const data = await getPracticeQuestions();
+        const pool = data.map((q) => ({
+          id: q.id,
+          q: q.questionText,
+          opts: [q.optionA, q.optionB, q.optionC, q.optionD].filter(Boolean),
+        }));
         return shuffle(pool).slice(0, count);
       }
 
       async function loadVDPool() {
-        const { data } = await sb.from("oral_questions").select("*").limit(50);
-        if (data && data.length >= 1) return shuffle(data).slice(0, 3);
-        console.warn("Chưa có câu vấn đáp trong DB, dùng câu mẫu tạm thời");
-        return shuffle(BUILTIN_ORAL).slice(0, 2);
+        const data = await getOralQuestions();
+        const pool = data.map((q) => ({
+          id: q.id,
+          question: q.questionText,
+        }));
+        return shuffle(pool).slice(0, 2);
       }
 
       // ======================== START ========================
       async function startExam(mode) {
-        document.getElementById("startScreen").style.display = "none";
-        document.getElementById("resultScreen").style.display = "none";
-
         if (mode === "tn") {
-          tnQuestions = await loadPool(40);
+          const pool = await loadPool(40);
+          if (pool.length === 0) {
+            alert("Chưa có câu hỏi trắc nghiệm nào. Vui lòng liên hệ giáo viên!");
+            return;
+          }
+          tnQuestions = pool;
+          document.getElementById("startScreen").style.display = "none";
+          document.getElementById("resultScreen").style.display = "none";
           tnAnswers = new Array(tnQuestions.length).fill(-1);
           tnCurrent = 0;
           tnTimeLeft = 45 * 60;
@@ -1013,6 +982,12 @@
           startTNTimer();
         } else {
           const oralQs = await loadVDPool();
+          if (oralQs.length === 0) {
+            alert("Chưa có câu hỏi vấn đáp nào. Vui lòng liên hệ giáo viên!");
+            return;
+          }
+          document.getElementById("startScreen").style.display = "none";
+          document.getElementById("resultScreen").style.display = "none";
           vdQuestions = oralQs;
           vdCurrentQ = 0;
           vdFollowupIdx = 0;
@@ -1114,62 +1089,79 @@
         if (
           confirm(
             ua > 0
-              ? `Còn ${ua} câu chưa trả lời. Xác nhận nộp bài?`
+              ? `Còn ${ua} câu chưa trả lời — các câu này sẽ KHÔNG được tính vào bài chấm (không tự động tính sai). Xác nhận nộp bài?`
               : "Xác nhận nộp bài?",
           )
         )
           submitTN();
       }
 
+      // Điểm số luôn do quiz-service tính từ đáp án lưu trên server — client chỉ gửi lựa
+      // chọn của học viên, KHÔNG bao giờ tự tính hay gửi điểm số lên (khắc phục lỗ hổng F3,
+      // xem ghi chú chi tiết ở luyen-tap.html).
       async function submitTN() {
         clearInterval(tnTimer);
         document.getElementById("timerBox").style.display = "none";
         document.getElementById("timerBox").style.background = "var(--red)";
         const elapsed = Math.floor((Date.now() - tnStart) / 1000);
-        let correct = 0;
-        tnQuestions.forEach((q, i) => {
-          if (tnAnswers[i] === q.ans) correct++;
-        });
-        const score = parseFloat(
-          ((correct / tnQuestions.length) * 10).toFixed(1),
-        );
         document.getElementById("tnScreen").style.display = "none";
 
-        // Wrong answers review
-        const wrong = tnQuestions.filter((q, i) => tnAnswers[i] !== q.ans);
+        const answers = [];
+        tnQuestions.forEach((q, i) => {
+          if (tnAnswers[i] !== -1) {
+            answers.push({ questionId: q.id, selectedOption: tnAnswers[i] });
+          }
+        });
+
+        if (answers.length === 0) {
+          alert("Bạn chưa trả lời câu nào!");
+          document.getElementById("tnScreen").style.display = "block";
+          document.getElementById("timerBox").style.display = "flex";
+          return;
+        }
+
+        let result;
+        try {
+          result = await submitExam(answers, elapsed);
+        } catch (err) {
+          alert("Lỗi nộp bài: " + err.message);
+          document.getElementById("tnScreen").style.display = "block";
+          document.getElementById("timerBox").style.display = "flex";
+          return;
+        }
+
+        // Xem lại chi tiết — đáp án đúng chỉ xuất hiện trong response SAU khi nộp bài.
+        const wrong = result.details.filter((d) => !d.isCorrect);
         let detailHtml = "";
         if (wrong.length > 0) {
           detailHtml =
             `<div style="font-weight:700;margin-bottom:8px;font-size:0.85rem;">Câu trả lời sai (${wrong.length} câu):</div>` +
             wrong
-              .map(
-                (
-                  q,
-                ) => `<div style="padding:8px 10px;background:var(--gray-50);border-radius:8px;margin-bottom:6px;font-size:0.78rem;">
-      <div style="font-weight:600;margin-bottom:3px;">${q.q}</div>
-      <div style="color:var(--red);">✗ Bạn chọn: ${q.opts[tnAnswers[tnQuestions.indexOf(q)]] || "Chưa trả lời"}</div>
-      <div style="color:#2e7d32;">✓ Đáp án: ${q.opts[q.ans]}</div>
-      ${q.exp ? `<div style="color:var(--gray-600);margin-top:3px;">💡 ${q.exp}</div>` : ""}
-    </div>`,
-              )
+              .map((d) => {
+                const q = tnQuestions.find((x) => x.id === d.questionId);
+                return `<div style="padding:8px 10px;background:var(--gray-50);border-radius:8px;margin-bottom:6px;font-size:0.78rem;">
+      <div style="font-weight:600;margin-bottom:3px;">${q ? q.q : ""}</div>
+      <div style="color:var(--red);">✗ Bạn chọn: ${q ? q.opts[d.selectedOption] : "—"}</div>
+      <div style="color:#2e7d32;">✓ Đáp án: ${q ? q.opts[d.correctAnswer] : "—"}</div>
+      ${d.explanation ? `<div style="color:var(--gray-600);margin-top:3px;">💡 ${d.explanation}</div>` : ""}
+    </div>`;
+              })
               .join("");
+        }
+        if (answers.length < tnQuestions.length) {
+          detailHtml =
+            `<div style="font-size:0.75rem;color:var(--gray-500);margin-bottom:8px;">Đã chấm trên ${answers.length}/${tnQuestions.length} câu đã trả lời.</div>` +
+            detailHtml;
         }
 
         showResult({
-          score,
-          correct,
-          total: tnQuestions.length,
+          score: result.score,
+          correct: result.correct,
+          total: result.total,
           type: "Trắc nghiệm",
           elapsed,
           detail: detailHtml,
         });
-        if (currentUser)
-          await saveExamResult(currentUser.id, {
-            score,
-            correct,
-            total: tnQuestions.length,
-            timeSpent: elapsed,
-          });
       }
 
       // ======================== VẤN ĐÁP ========================
@@ -1251,16 +1243,13 @@
         const btn = document.getElementById(`vdSubmitBtn${idx}`);
         btn.disabled = true;
         btn.innerHTML =
-          '<i class="fas fa-spinner fa-spin"></i> Đang đánh giá...';
+          '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
 
         vdAnswers[idx] = ans;
 
-        // Generate follow-up questions via Groq
-        const followups = await generateFollowups(
-          q.question,
-          ans,
-          q.expected_answer || "",
-        );
+        // Câu hỏi phụ chỉ để khai thác sâu hơn — không tự chấm điểm ở đây, nên dùng tạm
+        // chatbot chung là đủ (điểm số thật sự tính 1 lần ở finalizeVD qua /grade-oral).
+        const followups = await generateFollowups(q.question, ans);
         vdFollowups = followups;
         vdFollowupIdx = 0;
         vdFollowupAnswers[idx] = [];
@@ -1272,35 +1261,23 @@
         }
       }
 
-      async function generateFollowups(mainQ, answer, expected) {
-        if (!groqKey) {
-          return [
-            {
-              q: `Bạn có thể giải thích thêm về "${mainQ.slice(0, 30)}..." không?`,
-            },
-            { q: "Tư tưởng này có ý nghĩa thực tiễn như thế nào?" },
-          ];
-        }
+      async function generateFollowups(mainQ, answer) {
         try {
           const prompt = `Bạn là giảng viên TTHCM đang thi vấn đáp. Học viên vừa trả lời:
 
 Câu hỏi chính: ${mainQ}
 Câu trả lời: ${answer || "(Không trả lời)"}
-Đáp án chuẩn: ${expected}
 
-Hãy tạo ra 2-3 câu hỏi phụ để kiểm tra sâu hơn sự hiểu biết của học viên. Trả về JSON:
-{"questions": [{"q": "câu hỏi phụ 1"}, {"q": "câu hỏi phụ 2"}, {"q": "câu hỏi phụ 3"}]}
-
-Chỉ trả về JSON, không có markdown.`;
-          const res = await callGroq(prompt, 400);
-          if (!res)
-            return [
-              { q: "Bạn hiểu gì thêm về chủ đề này?" },
-              { q: "Ví dụ thực tiễn nào bạn có thể nêu?" },
-            ];
-          const clean = res.replace(/```json|```/g, "").trim();
-          const data = JSON.parse(clean);
-          return data.questions || [];
+Hãy đặt đúng 2 câu hỏi phụ ngắn gọn để kiểm tra sâu hơn sự hiểu biết của học viên. Mỗi câu hỏi 1 dòng, không đánh số, không giải thích thêm.`;
+          const res = await askAI(prompt);
+          const lines = res
+            .split("\n")
+            .map((l) => l.replace(/^[-*\d.)\s]+/, "").trim())
+            .filter((l) => l.length > 0)
+            .slice(0, 3);
+          return lines.length > 0
+            ? lines.map((q) => ({ q }))
+            : [{ q: "Bạn có thể nêu thêm ví dụ cụ thể?" }];
         } catch {
           return [
             { q: "Bạn có thể nêu thêm ví dụ cụ thể?" },
@@ -1362,19 +1339,28 @@ Chỉ trả về JSON, không có markdown.`;
       }
 
       async function finalizeVD(qIdx) {
-        // Get AI score for this question
+        // Chấm điểm thật qua ai-service (server-side), không tự tính ở client.
         const q = vdQuestions[qIdx];
         const mainAns = vdAnswers[qIdx] || "";
         const followupAns = vdFollowupAnswers[qIdx] || [];
 
-        const feedback = await scoreVDAnswer(
-          q.question,
-          mainAns,
-          followupAns,
-          q.expected_answer || "",
-        );
-
         const fbArea = document.getElementById(`feedbackArea${qIdx}`);
+        let feedback;
+        try {
+          const result = await submitOralAnswer(
+            q.id,
+            mainAns,
+            followupAns.map((f) => f.a),
+          );
+          feedback = {
+            score: result.aiScore,
+            comment: result.aiComment || "Đã ghi nhận.",
+            rubric: result.rubricScores || {},
+          };
+        } catch (err) {
+          feedback = { score: 0, comment: "Lỗi chấm điểm: " + err.message, rubric: {} };
+        }
+
         if (fbArea) {
           const r = feedback.rubric || {};
           const rubricHtml =
@@ -1396,9 +1382,6 @@ Chỉ trả về JSON, không có markdown.`;
 
         document.getElementById(`followupArea${qIdx}`).innerHTML = "";
 
-        // Store score
-        if (!vdAnswers.scores) vdAnswers.scores = [];
-        vdAnswers.scores = vdAnswers.scores || [];
         vdAnswers[`score_${qIdx}`] = feedback.score;
 
         // Move to next question or finish
@@ -1407,52 +1390,6 @@ Chỉ trả về JSON, không có markdown.`;
           setTimeout(() => renderVDQuestion(nextIdx), 1500);
         } else {
           setTimeout(() => finishVD(), 1500);
-        }
-      }
-
-      async function scoreVDAnswer(question, answer, followups, expected) {
-        if (!groqKey) {
-          const hasAnswer = answer && answer.length > 20;
-          return {
-            score: hasAnswer ? 6 : 3,
-            comment: hasAnswer
-              ? "Câu trả lời cơ bản. Cần bổ sung thêm chi tiết."
-              : "Câu trả lời quá ngắn hoặc chưa đầy đủ.",
-            rubric: {
-              noi_dung: hasAnswer ? 6 : 3,
-              lap_luan: hasAnswer ? 6 : 3,
-              vi_du: hasAnswer ? 4 : 2,
-              dien_dat: hasAnswer ? 6 : 3,
-            },
-          };
-        }
-        try {
-          const fuText = followups
-            .map((f, i) => `Câu phụ ${i + 1}: ${f.q}\nTrả lời: ${f.a}`)
-            .join("\n");
-          const prompt = `Chấm điểm bài vấn đáp TTHCM theo 4 tiêu chí (thang 10):\n\nCâu hỏi: ${question}\nĐáp án chuẩn: ${expected}\nCâu trả lời chính: ${answer || "(Không trả lời)"}\n${fuText}\n\n4 TIÊU CHÍ (mỗi tiêu chí /10):\n1. Nội dung (40%): Đúng và đủ ý chính?\n2. Lập luận (25%): Phân tích logic, rõ ràng?\n3. Ví dụ (20%): Dẫn chứng thực tiễn cụ thể?\n4. Diễn đạt (15%): Rõ ràng, đúng thuật ngữ?\n\nTrả về JSON (chỉ JSON):\n{"rubric":{"noi_dung":8,"lap_luan":7,"vi_du":5,"dien_dat":9},"score":7.2,"comment":"Nhận xét 2-3 câu tiếng Việt"}`;
-          const res = await callGroq(prompt, 300);
-          const data = JSON.parse(res.replace(/```json|```/g, "").trim());
-          const r = data.rubric || {};
-          const calc =
-            (r.noi_dung || 5) * 0.4 +
-            (r.lap_luan || 5) * 0.25 +
-            (r.vi_du || 5) * 0.2 +
-            (r.dien_dat || 5) * 0.15;
-          return {
-            score: Math.min(
-              10,
-              Math.max(0, data.score || parseFloat(calc.toFixed(1))),
-            ),
-            comment: data.comment || "Đã ghi nhận.",
-            rubric: r,
-          };
-        } catch {
-          return {
-            score: 5,
-            comment: "Câu trả lời đã được ghi nhận.",
-            rubric: {},
-          };
         }
       }
 
@@ -1480,6 +1417,8 @@ Chỉ trả về JSON, không có markdown.`;
           )
           .join("");
 
+        // Điểm vấn đáp là điểm hiển thị (trung bình các câu đã chấm qua ai-service),
+        // chưa gộp vào điểm TB/leaderboard — mỗi câu đã được lưu riêng ở quiz-service.
         showResult({
           score: avgScore.toFixed(1),
           correct: null,
@@ -1488,13 +1427,6 @@ Chỉ trả về JSON, không có markdown.`;
           elapsed,
           detail,
         });
-        if (currentUser)
-          await saveExamResult(currentUser.id, {
-            score: avgScore,
-            correct: Math.round(avgScore * 2),
-            total: 20,
-            timeSpent: elapsed,
-          });
       }
 
       // ======================== RESULT ========================
@@ -1522,17 +1454,20 @@ Chỉ trả về JSON, không có markdown.`;
         document.getElementById("resSaved").textContent =
           "✓ Kết quả đã được lưu vào tài khoản";
         document.getElementById("resDetail").innerHTML = detail;
-        if (currentUser) logStudyTime(currentUser.id, Math.ceil(elapsed / 60));
+        logStudyTime(Math.ceil(elapsed / 60)).catch(() => {});
       }
 
       // ======================== HISTORY ========================
       async function loadHistory() {
         const el = document.getElementById("historyList");
-        if (!currentUser) {
-          el.innerHTML = '<div class="empty">Cần đăng nhập</div>';
+        let history;
+        try {
+          const results = await getMyQuizResults();
+          history = results.filter((r) => r.kind === "exam");
+        } catch {
+          el.innerHTML = '<div class="empty">Không tải được lịch sử</div>';
           return;
         }
-        const history = await getExamHistory(currentUser.id);
         if (!history.length) {
           el.innerHTML =
             '<div class="empty"><i class="fas fa-clipboard-list"></i>Chưa có kết quả thi</div>';
@@ -1543,488 +1478,14 @@ Chỉ trả về JSON, không có markdown.`;
             (h) => `
     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--gray-100);">
       <div>
-        <div style="font-weight:600;font-size:0.875rem;">${formatDate(h.created_at)}</div>
-        <div style="font-size:0.7rem;color:var(--gray-500);">${h.correct || 0}/${h.total || 0} câu · ${formatTime(h.time_spent_seconds || 0)}</div>
+        <div style="font-weight:600;font-size:0.875rem;">${formatDate(h.createdAtUtc)}</div>
+        <div style="font-size:0.7rem;color:var(--gray-500);">${h.correct || 0}/${h.total || 0} câu</div>
       </div>
       <div style="font-family:'Oswald',sans-serif;font-size:1.3rem;font-weight:700;color:${parseFloat(h.score) >= 5 ? "#2e7d32" : "var(--red)"};">${parseFloat(h.score).toFixed(1)}</div>
     </div>`,
           )
           .join("");
       }
-
-      // ======================== GROQ ========================
-      async function callGroq(prompt, maxTokens = 500) {
-        if (!groqKey) return null;
-        try {
-          const res = await fetch(
-            "https://api.groq.com/openai/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${groqKey}`,
-              },
-              body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
-                messages: [{ role: "user", content: prompt }],
-                max_tokens: maxTokens,
-                temperature: 0.5,
-              }),
-            },
-          );
-          const data = await res.json();
-          return data.choices?.[0]?.message?.content || null;
-        } catch {
-          return null;
-        }
-      }
-
-      // ======================== BUILT-IN POOLS ========================
-      const BUILTIN_POOL = [
-        {
-          q: "Tư tưởng HCM là kết quả vận dụng sáng tạo chủ nghĩa nào?",
-          opts: ["Mác - Lênin", "Khổng giáo", "Tam dân", "Phật giáo"],
-          ans: 0,
-          exp: "Tư tưởng HCM vận dụng sáng tạo chủ nghĩa Mác - Lênin.",
-        },
-        {
-          q: "HCM khẳng định: 'Không có gì quý hơn...'",
-          opts: ["vàng bạc", "độc lập tự do", "chủ nghĩa xã hội", "hòa bình"],
-          ans: 1,
-          exp: "Độc lập tự do là giá trị cao nhất.",
-        },
-        {
-          q: "Phẩm chất đạo đức quan trọng nhất của người cách mạng?",
-          opts: [
-            "Dũng cảm chiến đấu",
-            "Trung với nước, hiếu với dân",
-            "Siêng năng học tập",
-            "Khiêm tốn giản dị",
-          ],
-          ans: 1,
-          exp: '"Trung với nước, hiếu với dân" là phẩm chất hàng đầu.',
-        },
-        {
-          q: "Sợi chỉ đỏ xuyên suốt tư tưởng HCM là gì?",
-          opts: [
-            "Xây dựng quân đội",
-            "Độc lập dân tộc gắn CNXH",
-            "Đoàn kết quốc tế",
-            "Đấu tranh vũ trang",
-          ],
-          ans: 1,
-          exp: "Độc lập dân tộc gắn liền CNXH là tư tưởng xuyên suốt.",
-        },
-        {
-          q: "Bản chất Nhà nước VNDCCH theo HCM?",
-          opts: [
-            "Nhà nước tư sản",
-            "Nhà nước của dân, do dân, vì dân",
-            "Nhà nước công nhân",
-            "Dân chủ tư sản",
-          ],
-          ans: 1,
-          exp: "Nhà nước của dân, do dân và vì nhân dân.",
-        },
-        {
-          q: '"Cần" trong Cần-Kiệm-Liêm-Chính nghĩa là?',
-          opts: [
-            "Cần thận trọng",
-            "Cần cù, siêng năng lao động",
-            "Cần nhiều tiền",
-            "Cần giúp người",
-          ],
-          ans: 1,
-          exp: '"Cần" tức là cần cù, siêng năng, sáng tạo trong lao động.',
-        },
-        {
-          q: "Kẻ thù nguy hiểm nhất của người cách mạng?",
-          opts: ["Thực dân", "Chủ nghĩa cá nhân", "Thiếu học vấn", "Nghèo đói"],
-          ans: 1,
-          exp: "Chủ nghĩa cá nhân là kẻ thù hung ác nhất.",
-        },
-        {
-          q: "Nguyên tắc tổ chức Đảng theo HCM?",
-          opts: [
-            "Dân chủ đại diện",
-            "Tập trung dân chủ",
-            "Đa nguyên",
-            "Chuyên quyền",
-          ],
-          ans: 1,
-          exp: "Tập trung dân chủ là nguyên tắc tổ chức cơ bản.",
-        },
-        {
-          q: "HCM đọc Tuyên ngôn Độc lập ngày nào?",
-          opts: ["19/8/1945", "2/9/1945", "19/12/1946", "30/4/1975"],
-          ans: 1,
-          exp: "2/9/1945 tại Quảng trường Ba Đình, Hà Nội.",
-        },
-        {
-          q: "Đại đoàn kết dân tộc theo HCM là?",
-          opts: [
-            "Chiến thuật tạm thời",
-            "Chiến lược lâu dài",
-            "Biện pháp đối ngoại",
-            "Phương tiện ngoại giao",
-          ],
-          ans: 1,
-          exp: "Đại đoàn kết là chiến lược cách mạng lâu dài.",
-        },
-        {
-          q: "Cơ sở lý luận chủ yếu của Tư tưởng HCM?",
-          opts: [
-            "Triết học phương Đông",
-            "Chủ nghĩa Mác - Lênin",
-            "Khai sáng Pháp",
-            "Nho giáo",
-          ],
-          ans: 1,
-          exp: "Chủ nghĩa Mác - Lênin là cơ sở lý luận trực tiếp nhất.",
-        },
-        {
-          q: "Cán bộ nhà nước là gì của nhân dân theo HCM?",
-          opts: [
-            "Người lãnh đạo tuyệt đối",
-            "Công bộc (đầy tớ)",
-            "Đại diện Đảng",
-            "Người giám sát",
-          ],
-          ans: 1,
-          exp: 'Cán bộ là "công bộc", "đầy tớ trung thành" của nhân dân.',
-        },
-        {
-          q: '"Chí công vô tư" nghĩa là?',
-          opts: [
-            "Làm không lương",
-            "Đặt lợi ích công trên tư",
-            "Không gia đình",
-            "Sống độc thân",
-          ],
-          ans: 1,
-          exp: "Đặt lợi ích Đảng, nhân dân lên trên lợi ích cá nhân.",
-        },
-        {
-          q: "Chiến tranh nhân dân theo HCM?",
-          opts: [
-            "Quân đội chính quy",
-            "Toàn dân đánh giặc",
-            "Du kích thuần túy",
-            "Nước ngoài",
-          ],
-          ans: 1,
-          exp: "Chiến tranh nhân dân: toàn dân, toàn diện, trường kỳ.",
-        },
-        {
-          q: "Rèn luyện đạo đức cách mạng là quá trình?",
-          opts: [
-            "Ngắn hạn",
-            "Thường xuyên suốt đời",
-            "Chỉ khi trẻ",
-            "Khi bị phê bình",
-          ],
-          ans: 1,
-          exp: "Rèn luyện đạo đức là công việc suốt cả cuộc đời.",
-        },
-        {
-          q: "HCM tham gia sáng lập ĐCS Pháp năm nào?",
-          opts: ["1919", "1920", "1922", "1925"],
-          ans: 1,
-          exp: "Năm 1920 tại Đại hội Tours, Pháp.",
-        },
-        {
-          q: "Lực lượng chủ yếu cách mạng VN theo HCM?",
-          opts: ["Tư sản", "Công - Nông liên minh", "Tiểu tư sản", "Quân đội"],
-          ans: 1,
-          exp: "Liên minh công nhân - nông dân là nền tảng cách mạng.",
-        },
-        {
-          q: "Giá trị truyền thống được HCM kế thừa?",
-          opts: [
-            "Cá nhân chủ nghĩa",
-            "Dân tộc cực đoan",
-            "Chủ nghĩa yêu nước",
-            "Phong kiến",
-          ],
-          ans: 2,
-          exp: "Chủ nghĩa yêu nước là cơ sở hình thành tư tưởng HCM.",
-        },
-        {
-          q: "Mục tiêu CNXH ở VN theo HCM?",
-          opts: [
-            "Công nghiệp hóa",
-            "Ấm no và hạnh phúc cho nhân dân",
-            "Xuất khẩu",
-            "Đô thị hóa",
-          ],
-          ans: 1,
-          exp: "CNXH nhằm đảm bảo ấm no, tự do, hạnh phúc cho nhân dân.",
-        },
-        {
-          q: "HCM tiếp thu văn hóa nhân loại theo nguyên tắc nào?",
-          opts: [
-            "Bắt chước nguyên xi",
-            "Phê phán toàn bộ",
-            "Chọn lọc có phê phán",
-            "Từ chối hoàn toàn",
-          ],
-          ans: 2,
-          exp: "Tiếp thu có chọn lọc, phê phán — biểu hiện sự sáng tạo.",
-        },
-        {
-          q: "Quân đội nhân dân VN phục vụ mục đích gì?",
-          opts: [
-            "Bảo vệ chính quyền",
-            "Bảo vệ Tổ quốc và nhân dân",
-            "Phục vụ Đảng",
-            "Giúp Liên Xô",
-          ],
-          ans: 1,
-          exp: "Quân đội từ nhân dân mà ra, chiến đấu vì nhân dân.",
-        },
-        {
-          q: "Xây dựng lực lượng vũ trang theo HCM nhấn mạnh?",
-          opts: [
-            "Chuyên môn kỹ thuật",
-            "Chính trị là linh hồn",
-            "Số lượng đông",
-            "Vũ khí hiện đại",
-          ],
-          ans: 1,
-          exp: "Xây dựng chính trị - tư tưởng là nền tảng, linh hồn.",
-        },
-        {
-          q: "Tinh thần quốc tế trong sáng theo HCM bao gồm?",
-          opts: [
-            "Chỉ yêu Liên Xô",
-            "Đoàn kết với nhân dân lao động toàn thế giới",
-            "Phê phán nước khác",
-            "Không quan tâm ngoại giao",
-          ],
-          ans: 1,
-          exp: "Đoàn kết với giai cấp công nhân và nhân dân lao động toàn thế giới.",
-        },
-        {
-          q: "Phẩm chất nổi bật của HCM hình thành tư tưởng?",
-          opts: [
-            "Tư duy học thuật",
-            "Tư duy độc lập, tự chủ, sáng tạo",
-            "Tư duy kinh viện",
-            "Tư duy giáo điều",
-          ],
-          ans: 1,
-          exp: "Tư duy độc lập, tự chủ, sáng tạo là phẩm chất cốt lõi.",
-        },
-        {
-          q: 'Theo HCM, "Kiệm" trong đạo đức cách mạng nghĩa là?',
-          opts: [
-            "Keo kiệt",
-            "Tiết kiệm, không xa xỉ lãng phí",
-            "Không chi tiêu",
-            "Sống nghèo khổ",
-          ],
-          ans: 1,
-          exp: '"Kiệm" tức là tiết kiệm sức lao động, thì giờ, của cải.',
-        },
-        {
-          q: "HCM nhấn mạnh văn hóa có vai trò gì?",
-          opts: [
-            "Giải trí đơn thuần",
-            "Nền tảng tinh thần của xã hội",
-            "Phụ trợ cho kinh tế",
-            "Không quan trọng",
-          ],
-          ans: 1,
-          exp: "Văn hóa là nền tảng tinh thần, soi đường cho quốc dân đi.",
-        },
-        {
-          q: "Theo HCM, giáo dục nhằm mục đích gì?",
-          opts: [
-            "Đào tạo quan chức",
-            "Trồng người phục vụ Tổ quốc",
-            "Thi lấy bằng",
-            "Học thuộc lý luận",
-          ],
-          ans: 1,
-          exp: '"Vì lợi ích trăm năm trồng người" — mục tiêu giáo dục HCM.',
-        },
-        {
-          q: "HCM coi Đảng Cộng sản có vai trò gì?",
-          opts: [
-            "Tổ chức thứ yếu",
-            "Đội tiên phong của giai cấp công nhân",
-            "Tổ chức đối lập",
-            "Hội từ thiện",
-          ],
-          ans: 1,
-          exp: "Đảng là đội tiên phong, lãnh đạo cách mạng VN.",
-        },
-        {
-          q: "Hiến pháp 1946 quy định quyền bầu cử thế nào?",
-          opts: [
-            "Chỉ nam giới",
-            "Từ 21 tuổi",
-            "Công dân từ 18 tuổi, không phân biệt giới tính",
-            "Chỉ có học vấn",
-          ],
-          ans: 2,
-          exp: "Hiến pháp 1946: công dân từ 18 tuổi đều có quyền bầu cử.",
-        },
-        {
-          q: "HCM gửi thư học sinh khai trường đầu tiên VNDCCH năm nào?",
-          opts: ["1945", "1946", "1947", "1948"],
-          ans: 0,
-          exp: "5/9/1945, Bác gửi thư khai trường đầu tiên của nước VNDCCH.",
-        },
-        {
-          q: "Phong cách làm việc của HCM có đặc điểm gì?",
-          opts: [
-            "Xa rời quần chúng",
-            "Khoa học, dân chủ, sâu sát quần chúng",
-            "Độc đoán, chuyên quyền",
-            "Làm việc một mình",
-          ],
-          ans: 1,
-          exp: "Phong cách làm việc HCM: khoa học, dân chủ, sâu sát quần chúng.",
-        },
-        {
-          q: "Theo HCM, nguồn gốc tư tưởng cách mạng VN là?",
-          opts: [
-            "Tư tưởng phương Tây",
-            "Chủ nghĩa yêu nước kết hợp Mác-Lênin",
-            "Tư tưởng Trung Hoa",
-            "Triết học Pháp",
-          ],
-          ans: 1,
-          exp: "Chủ nghĩa yêu nước truyền thống kết hợp với Mác-Lênin.",
-        },
-        {
-          q: "HCM cho rằng thắng lợi cách mạng phụ thuộc vào?",
-          opts: [
-            "Vũ khí",
-            "Đảng có đường lối đúng đắn, được nhân dân ủng hộ",
-            "Viện trợ nước ngoài",
-            "Số lượng quân sự",
-          ],
-          ans: 1,
-          exp: "Đảng có đường lối đúng + được nhân dân ủng hộ = thắng lợi.",
-        },
-        {
-          q: "Tư tưởng HCM về đoàn kết quốc tế?",
-          opts: [
-            "Chỉ đoàn kết với các nước XHCN",
-            "Đoàn kết rộng rãi với mọi lực lượng tiến bộ",
-            "Không cần đoàn kết",
-            "Chỉ đoàn kết với châu Á",
-          ],
-          ans: 1,
-          exp: "Đoàn kết rộng rãi với mọi lực lượng yêu chuộng hòa bình, tiến bộ.",
-        },
-        {
-          q: "Theo HCM, điều kiện để CM VN thắng lợi?",
-          opts: [
-            "Vũ khí mạnh",
-            "Có Đảng Cộng sản lãnh đạo",
-            "Viện trợ quốc tế",
-            "Địa lợi",
-          ],
-          ans: 1,
-          exp: "Cách mạng muốn thành công phải có Đảng Cộng sản lãnh đạo.",
-        },
-        {
-          q: "HCM nhận định về vai trò phụ nữ thế nào?",
-          opts: [
-            "Phụ nữ không tham gia cách mạng",
-            "Phụ nữ là lực lượng cách mạng quan trọng",
-            "Phụ nữ chỉ lo gia đình",
-            "Phụ nữ không có quyền bầu cử",
-          ],
-          ans: 1,
-          exp: 'HCM đánh giá cao vai trò phụ nữ: "Giải phóng phụ nữ là tiến bộ xã hội".',
-        },
-        {
-          q: 'Chuẩn mực đạo đức "Liêm" theo HCM là?',
-          opts: [
-            "Không ăn nhiều",
-            "Trong sạch, không tham ô, không lãng phí",
-            "Sống nghèo khổ",
-            "Không quan hệ bạn bè",
-          ],
-          ans: 1,
-          exp: '"Liêm" là trong sạch, không tham ô, không chiếm tài sản công.',
-        },
-        {
-          q: 'HCM đề cao phẩm chất "Chính" nghĩa là?',
-          opts: [
-            "Đúng giờ",
-            "Thẳng thắn, trung thực, chính trực",
-            "Chính quy hóa",
-            "Chính thống",
-          ],
-          ans: 1,
-          exp: '"Chính" là chính trực, thẳng thắn, không dối trá, không làm việc xấu.',
-        },
-        {
-          q: "HCM xác định mối quan hệ Đảng - Nhân dân là?",
-          opts: [
-            "Đảng lãnh đạo tuyệt đối, nhân dân phục tùng",
-            "Cá với nước — Đảng gắn bó mật thiết với nhân dân",
-            "Đảng và nhân dân tách biệt",
-            "Nhân dân lãnh đạo Đảng",
-          ],
-          ans: 1,
-          exp: "Mối quan hệ cá với nước: Đảng phải gắn bó mật thiết với nhân dân.",
-        },
-        {
-          q: 'Theo HCM, "người cách mạng phải có đức" bởi vì?',
-          opts: [
-            "Để được khen ngợi",
-            "Đức là nền tảng, tài không có đức là vô dụng",
-            "Vì truyền thống",
-            "Vì ép buộc",
-          ],
-          ans: 1,
-          exp: "Có tài mà không có đức thì vô dụng; có đức mà không có tài thì khó hoàn thành nhiệm vụ.",
-        },
-        {
-          q: "HCM kết hợp truyền thống dân tộc với học thuyết nào để giải phóng đất nước?",
-          opts: [
-            "Dân chủ tư sản",
-            "Chủ nghĩa Mác - Lênin",
-            "Chủ nghĩa dân tộc Châu Á",
-            "Tư tưởng Tam dân",
-          ],
-          ans: 1,
-          exp: "HCM kết hợp chủ nghĩa yêu nước truyền thống với Mác - Lênin.",
-        },
-      ];
-
-      const BUILTIN_ORAL = [
-        {
-          question:
-            "Trình bày khái niệm và nguồn gốc hình thành Tư tưởng Hồ Chí Minh?",
-          expected:
-            "Tư tưởng HCM là hệ thống quan điểm toàn diện về cách mạng VN, hình thành từ chủ nghĩa Mác-Lênin, truyền thống dân tộc và tinh hoa văn hóa nhân loại.",
-        },
-        {
-          question:
-            "Phân tích tư tưởng Hồ Chí Minh về đạo đức cách mạng. Ý nghĩa của đạo đức đối với người cán bộ, đảng viên ngày nay?",
-          expected:
-            "Đạo đức HCM gồm: Trung với nước hiếu với dân, Cần-Kiệm-Liêm-Chính, Yêu thương con người, Tinh thần quốc tế. Đây là nền tảng phẩm chất người cách mạng.",
-        },
-        {
-          question:
-            "Trình bày tư tưởng Hồ Chí Minh về độc lập dân tộc gắn liền với chủ nghĩa xã hội?",
-          expected:
-            "Độc lập dân tộc gắn CNXH là sợi chỉ đỏ xuyên suốt. Độc lập là tiền đề, CNXH là mục tiêu cuối cùng. Hai mục tiêu này không thể tách rời.",
-        },
-        {
-          question:
-            "Phân tích quan điểm của Hồ Chí Minh về xây dựng Nhà nước của nhân dân, do nhân dân, vì nhân dân?",
-          expected:
-            "Nhà nước phải là của dân (quyền lực thuộc nhân dân), do dân (nhân dân tham gia quản lý), vì dân (phục vụ lợi ích nhân dân). Cán bộ là công bộc của dân.",
-        },
-      ];
 
       // ── TEXT TO SPEECH (TTS) ──
       let currentUtterance = null;
@@ -2148,23 +1609,18 @@ Chỉ trả về JSON, không có markdown.`;
       }
 
       async function summarizeWithGroq(text) {
-        if (!groqKey) {
-          return text
-            .split(/[,.;!?]+/)
-            .map((s) => s.trim())
-            .filter((s) => s.length > 5)
-            .slice(0, 5);
-        }
         try {
           const prompt =
             'Ban la tro ly hoc thuat. Nguoi hoc vua noi cau tra loi ve Tu tuong Ho Chi Minh.\nCau tra loi goc: "' +
             text +
-            '"\nHay tong hop thanh 3-5 y chinh ngan gon. Tra ve JSON:\n{"points": ["Y 1...", "Y 2...", "Y 3..."]}\nChi tra ve JSON, khong markdown.';
-          const res = await callGroq(prompt, 300);
-          if (!res) return [text];
-          const clean = res.replace(/```json|```/g, "").trim();
-          const data = JSON.parse(clean);
-          return data.points || [text];
+            '"\nHay tong hop thanh 3-5 y chinh ngan gon, moi y 1 dong, khong danh so, khong giai thich them.';
+          const res = await askAI(prompt);
+          const lines = res
+            .split("\n")
+            .map((l) => l.replace(/^[-*\d.)\s]+/, "").trim())
+            .filter((l) => l.length > 5)
+            .slice(0, 5);
+          return lines.length > 0 ? lines : [text];
         } catch {
           return text
             .split(/[,.;!?]+/)
@@ -2293,11 +1749,7 @@ Chỉ trả về JSON, không có markdown.`;
       // ── Materials sidebar for exam page ──
       async function loadMaterialsForExam() {
         try {
-          const { data } = await sb
-            .from("materials")
-            .select("id,title,chapter,file_url")
-            .eq("is_active", true)
-            .order("chapter");
+          const data = await listMaterials();
           if (!data || !data.length) return;
           document.getElementById("matCardTT").style.display = "block";
           document.getElementById("matListTT").innerHTML = data
