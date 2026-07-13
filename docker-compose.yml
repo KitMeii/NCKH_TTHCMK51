@@ -1,0 +1,144 @@
+# Dev/test orchestration for all 6 services + gateway + Postgres + Seq, per the approved
+# migration plan (Bước 5.1). Only the gateway is published to the host — every other service is
+# reachable solely over the internal "tthcm-net" network, which is what lets each service trust
+# the X-User-Id/X-User-Role headers the gateway forwards (see Shared.Contracts.HeaderNames).
+#
+# Usage: cp .env.example .env, fill in real values, then `docker compose up --build`.
+
+networks:
+  tthcm-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  seq-data:
+
+x-service-defaults: &service-defaults
+  build:
+    context: .
+  networks:
+    - tthcm-net
+  restart: unless-stopped
+  depends_on:
+    postgres:
+      condition: service_healthy
+  environment:
+    &default-env
+    Jwt__Issuer: tthcm-platform
+    Jwt__Audience: tthcm-services
+    Jwt__SigningKey: ${JWT_SIGNING_KEY}
+    Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN}
+    Seq__Url: http://seq:5341
+    Database__AutoMigrate: "true"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: tthcm
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - tthcm-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  seq:
+    image: datalust/seq:latest
+    environment:
+      ACCEPT_EULA: "Y"
+    volumes:
+      - seq-data:/data
+    ports:
+      # Dev-only convenience to browse logs at http://localhost:8081 — do not publish this port
+      # in a real deployment; Seq has no auth configured here.
+      - "8081:80"
+    networks:
+      - tthcm-net
+
+  auth-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/auth-service/AuthService.Api/Dockerfile
+    environment:
+      <<: *default-env
+      ConnectionStrings__AuthDb: Host=postgres;Port=5432;Database=tthcm;Username=postgres;Password=${POSTGRES_PASSWORD}
+      Seed__Enabled: ${SEED_DEMO_ACCOUNTS:-false}
+
+  content-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/content-service/ContentService.Api/Dockerfile
+    environment:
+      <<: *default-env
+      ConnectionStrings__ContentDb: Host=postgres;Port=5432;Database=tthcm;Username=postgres;Password=${POSTGRES_PASSWORD}
+
+  quiz-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/quiz-service/QuizService.Api/Dockerfile
+    environment:
+      <<: *default-env
+      ConnectionStrings__QuizDb: Host=postgres;Port=5432;Database=tthcm;Username=postgres;Password=${POSTGRES_PASSWORD}
+
+  ai-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/ai-service/AiService.Api/Dockerfile
+    depends_on: []
+    environment:
+      <<: *default-env
+      Groq__ApiKey: ${GROQ_API_KEY}
+
+  progress-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/progress-service/ProgressService.Api/Dockerfile
+    environment:
+      <<: *default-env
+      ConnectionStrings__ProgressDb: Host=postgres;Port=5432;Database=tthcm;Username=postgres;Password=${POSTGRES_PASSWORD}
+
+  admin-service:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: services/admin-service/AdminService.Api/Dockerfile
+    environment:
+      <<: *default-env
+      ConnectionStrings__AdminDb: Host=postgres;Port=5432;Database=tthcm;Username=postgres;Password=${POSTGRES_PASSWORD}
+
+  gateway:
+    build:
+      context: .
+      dockerfile: services/gateway/Gateway/Dockerfile
+    networks:
+      - tthcm-net
+    restart: unless-stopped
+    depends_on:
+      - auth-service
+      - content-service
+      - quiz-service
+      - ai-service
+      - progress-service
+      - admin-service
+    environment:
+      Jwt__Issuer: tthcm-platform
+      Jwt__Audience: tthcm-services
+      Jwt__SigningKey: ${JWT_SIGNING_KEY}
+      Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN}
+      Seq__Url: http://seq:5341
+      RateLimiting__Ai__PermitLimit: ${AI_RATE_LIMIT_PER_MINUTE:-10}
+    ports:
+      - "8080:8080"
