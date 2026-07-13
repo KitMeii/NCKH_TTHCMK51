@@ -10,4 +10,5 @@ public interface IAuthService
     Task<IReadOnlyList<UserNameResponse>> GetNamesByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken ct);
     Task<IReadOnlyList<UserResponse>> ListUsersAsync(string? role, CancellationToken ct);
     Task<UserResponse> ChangeRoleAsync(Guid userId, string newRole, CancellationToken ct);
+    Task<UserResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request, CancellationToken ct);
 }

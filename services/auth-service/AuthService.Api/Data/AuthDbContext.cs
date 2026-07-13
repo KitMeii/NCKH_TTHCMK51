@@ -20,6 +20,8 @@ public sealed class AuthDbContext(DbContextOptions<AuthDbContext> options) : DbC
             entity.Property(u => u.Name).IsRequired().HasMaxLength(256);
             entity.Property(u => u.PasswordHash).IsRequired();
             entity.Property(u => u.Role).IsRequired().HasMaxLength(32);
+            entity.Property(u => u.Course).HasMaxLength(128);
+            entity.Property(u => u.ClassName).HasMaxLength(128);
         });
     }
 }

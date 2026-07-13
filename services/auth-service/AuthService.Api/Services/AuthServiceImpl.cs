@@ -74,7 +74,7 @@ public sealed class AuthServiceImpl(AuthDbContext db, IJwtTokenService tokenServ
         }
 
         return await query.OrderBy(u => u.Name)
-            .Select(u => new UserResponse(u.Id, u.Email, u.Name, u.Role))
+            .Select(u => new UserResponse(u.Id, u.Email, u.Name, u.Role, u.Course, u.ClassName))
             .ToListAsync(ct);
     }
 
@@ -89,11 +89,24 @@ public sealed class AuthServiceImpl(AuthDbContext db, IJwtTokenService tokenServ
         return ToUserResponse(user);
     }
 
+    public async Task<UserResponse> UpdateProfileAsync(Guid userId, UpdateProfileRequest request, CancellationToken ct)
+    {
+        var user = await db.Users.FindAsync([userId], ct)
+            ?? throw new NotFoundException("Không tìm thấy người dùng.");
+
+        user.Name = request.Name.Trim();
+        user.Course = request.Course?.Trim();
+        user.ClassName = request.ClassName?.Trim();
+        await db.SaveChangesAsync(ct);
+
+        return ToUserResponse(user);
+    }
+
     private AuthResponse BuildAuthResponse(User user)
     {
         var token = tokenService.IssueAccessToken(user.Id.ToString(), user.Email, user.Name, user.Role);
         return new AuthResponse(token.AccessToken, token.ExpiresAtUtc, ToUserResponse(user));
     }
 
-    private static UserResponse ToUserResponse(User user) => new(user.Id, user.Email, user.Name, user.Role);
+    private static UserResponse ToUserResponse(User user) => new(user.Id, user.Email, user.Name, user.Role, user.Course, user.ClassName);
 }

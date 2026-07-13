@@ -31,3 +31,13 @@ public sealed class ChangeRoleRequestValidator : AbstractValidator<ChangeRoleReq
             .WithMessage($"Role phải là một trong: {string.Join(", ", Roles.All)}.");
     }
 }
+
+public sealed class UpdateProfileRequestValidator : AbstractValidator<UpdateProfileRequest>
+{
+    public UpdateProfileRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(256);
+        RuleFor(x => x.Course).MaximumLength(128);
+        RuleFor(x => x.ClassName).MaximumLength(128);
+    }
+}

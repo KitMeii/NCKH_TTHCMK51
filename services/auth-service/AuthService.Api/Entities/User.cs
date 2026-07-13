@@ -9,5 +9,7 @@ public sealed class User
     public required string Name { get; set; }
     public required string PasswordHash { get; set; }
     public string Role { get; set; } = Roles.Student;
+    public string? Course { get; set; }
+    public string? ClassName { get; set; }
     public DateTime CreatedAtUtc { get; init; } = DateTime.UtcNow;
 }

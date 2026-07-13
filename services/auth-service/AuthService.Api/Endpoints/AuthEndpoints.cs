@@ -38,6 +38,14 @@ public static class AuthEndpoints
             })
             .RequireAuthorization();
 
+        group.MapPut("/me", async (UpdateProfileRequest request, ClaimsPrincipal principal, IAuthService authService, CancellationToken ct) =>
+            {
+                var result = await authService.UpdateProfileAsync(principal.GetUserId(), request, ct);
+                return Results.Ok(ApiResponse<UserResponse>.Ok(result));
+            })
+            .AddEndpointFilter<ValidationEndpointFilter<UpdateProfileRequest>>()
+            .RequireAuthorization();
+
         // Cross-service display enrichment (progress-service leaderboard, admin-service roster) —
         // name only, see UserNameResponse remarks. Any authenticated caller, not just Teacher/Admin,
         // since a student's own leaderboard view needs classmates' names too.
