@@ -104,3 +104,4 @@ jobs:
           push: true
           tags: ghcr.io/${{ github.repository }}/auth-service:${{ github.sha }},ghcr.io/${{ github.repository }}/auth-service:latest
 # trigger fresh CI run with updated secret - 1784268612
+# verify CI_MSSQL_SA_PASSWORD at correct repo - 1784269915
