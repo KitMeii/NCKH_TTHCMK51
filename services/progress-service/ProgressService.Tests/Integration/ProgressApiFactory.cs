@@ -25,6 +25,11 @@ public sealed class ProgressApiFactory : WebApplicationFactory<Program>, IAsyncL
     private readonly string _databaseName = $"progress_tests_{Guid.NewGuid():N}";
     public readonly FakeUserNameLookupClient NameLookup = new();
 
+    /// <summary>Value RequireInternalServiceKeyFilter expects on POST /record-score — tests
+    /// simulating the legitimate quiz-service caller must send this via the X-Internal-Key
+    /// header; see ProgressEndpointsTests.</summary>
+    public const string TestInternalServiceKey = "dev-only-internal-key-do-not-use-in-production";
+
     private bool UseSqlServerBackend => !string.IsNullOrWhiteSpace(SqlServerBaseConnectionString);
 
     private string BuildSqlServerConnectionString()
@@ -33,19 +38,21 @@ public sealed class ProgressApiFactory : WebApplicationFactory<Program>, IAsyncL
         return builder.ConnectionString;
     }
 
-    // Program.cs reads ConnectionStrings:ProgressDb and Jwt:SigningKey off the default config
-    // providers (env vars, appsettings.json) before ConfigureWebHost below ever runs — on a
-    // checkout without a local appsettings.Development.json (gitignored; every CI run included),
-    // it throws before we get a chance to configure anything, regardless of which backend ends up
-    // being used. Seed both as process env vars, only if not already set. The connection string
-    // value is irrelevant when UseSqlServerBackend is false (always replaced below) and unused
-    // entirely when true; the signing key must match TestTokens.cs.
+    // Program.cs reads ConnectionStrings:ProgressDb, Jwt:SigningKey and InternalService:SharedKey
+    // off the default config providers (env vars, appsettings.json) before ConfigureWebHost below
+    // ever runs — on a checkout without a local appsettings.Development.json (gitignored; every
+    // CI run included), it throws before we get a chance to configure anything, regardless of
+    // which backend ends up being used. Seed all three as process env vars, only if not already
+    // set. The connection string value is irrelevant when UseSqlServerBackend is false (always
+    // replaced below) and unused entirely when true; the signing key must match TestTokens.cs.
     static ProgressApiFactory()
     {
         Environment.SetEnvironmentVariable("ConnectionStrings__ProgressDb",
             Environment.GetEnvironmentVariable("ConnectionStrings__ProgressDb") ?? "Server=unused;Database=unused;Trusted_Connection=True;TrustServerCertificate=True");
         Environment.SetEnvironmentVariable("Jwt__SigningKey",
             Environment.GetEnvironmentVariable("Jwt__SigningKey") ?? "dev-only-signing-key-do-not-use-in-production-min-32-chars");
+        Environment.SetEnvironmentVariable("InternalService__SharedKey",
+            Environment.GetEnvironmentVariable("InternalService__SharedKey") ?? TestInternalServiceKey);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

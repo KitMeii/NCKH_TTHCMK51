@@ -1,11 +1,19 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Options;
+using Shared.Infrastructure.Auth;
 using Shared.Infrastructure.Common;
 
 namespace AdminService.Api.Clients;
 
-public sealed class HttpAuthAdminClient(HttpClient httpClient, IHttpContextAccessor httpContextAccessor) : IAuthAdminClient
+/// <summary>Calls auth-service's admin-only user endpoints. Those endpoints also require the
+/// X-Internal-Key header (see RequireInternalServiceKeyFilter) — this is the only place that
+/// header should ever be sent from, since admin-service is their one legitimate caller.</summary>
+public sealed class HttpAuthAdminClient(
+    HttpClient httpClient,
+    IHttpContextAccessor httpContextAccessor,
+    IOptions<InternalServiceAuthOptions> internalServiceAuthOptions) : IAuthAdminClient
 {
     public async Task<IReadOnlyList<RemoteUser>> ListUsersAsync(string? role, CancellationToken ct)
     {
@@ -41,6 +49,8 @@ public sealed class HttpAuthAdminClient(HttpClient httpClient, IHttpContextAcces
         {
             message.Headers.Authorization = parsed;
         }
+
+        message.Headers.Add(RequireInternalServiceKeyFilter.HeaderName, internalServiceAuthOptions.Value.SharedKey);
 
         return message;
     }

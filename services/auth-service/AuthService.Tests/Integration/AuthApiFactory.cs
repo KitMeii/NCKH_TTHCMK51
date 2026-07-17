@@ -27,20 +27,28 @@ public sealed class AuthApiFactory : WebApplicationFactory<Program>, IAsyncLifet
 
     private readonly string _databaseName = $"auth_tests_{Guid.NewGuid():N}";
 
-    // Program.cs reads ConnectionStrings:AuthDb and Jwt:SigningKey off the default config
-    // providers (env vars, appsettings.json) before ConfigureWebHost below ever runs — on a
-    // checkout without a local appsettings.Development.json (gitignored; every CI run included),
-    // it throws before this factory gets a chance to configure anything, regardless of which
-    // backend (SQL Server or InMemory) ends up being used. Seed both as process env vars, only if
-    // not already set. The connection string value here is irrelevant when UseSqlServerBackend is
-    // false (always replaced below) and unused entirely when it's true (BuildSqlServerConnectionString
-    // takes over); the signing key must match every other service's TestTokens.cs.
+    /// <summary>Value RequireInternalServiceKeyFilter expects on GET /users and PUT
+    /// /users/{id}/role — tests simulating the legitimate admin-service caller must send this via
+    /// the X-Internal-Key header; see AdminUserManagementTests.</summary>
+    public const string TestInternalServiceKey = "dev-only-internal-key-do-not-use-in-production";
+
+    // Program.cs reads ConnectionStrings:AuthDb, Jwt:SigningKey and InternalService:SharedKey off
+    // the default config providers (env vars, appsettings.json) before ConfigureWebHost below
+    // ever runs — on a checkout without a local appsettings.Development.json (gitignored; every
+    // CI run included), it throws before this factory gets a chance to configure anything,
+    // regardless of which backend (SQL Server or InMemory) ends up being used. Seed all three as
+    // process env vars, only if not already set. The connection string value here is irrelevant
+    // when UseSqlServerBackend is false (always replaced below) and unused entirely when it's
+    // true (BuildSqlServerConnectionString takes over); the signing key must match every other
+    // service's TestTokens.cs.
     static AuthApiFactory()
     {
         Environment.SetEnvironmentVariable("ConnectionStrings__AuthDb",
             Environment.GetEnvironmentVariable("ConnectionStrings__AuthDb") ?? "Server=unused;Database=unused;Trusted_Connection=True;TrustServerCertificate=True");
         Environment.SetEnvironmentVariable("Jwt__SigningKey",
             Environment.GetEnvironmentVariable("Jwt__SigningKey") ?? "dev-only-signing-key-do-not-use-in-production-min-32-chars");
+        Environment.SetEnvironmentVariable("InternalService__SharedKey",
+            Environment.GetEnvironmentVariable("InternalService__SharedKey") ?? TestInternalServiceKey);
     }
 
     private bool UseSqlServerBackend => !string.IsNullOrWhiteSpace(SqlServerBaseConnectionString);

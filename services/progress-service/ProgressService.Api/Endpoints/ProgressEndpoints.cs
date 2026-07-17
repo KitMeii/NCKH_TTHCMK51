@@ -39,15 +39,19 @@ public static class ProgressEndpoints
         });
 
         // Called by quiz-service right after grading a practice/exam attempt — see
-        // QuizService.Api's progress-reporting client. The score is trusted here because it's a
-        // server-to-server call carrying the student's own forwarded JWT, and quiz-service is the
-        // one that actually computed it (never the browser).
+        // QuizService.Api's HttpProgressReporter. The score is trusted here because quiz-service
+        // is the one that actually computed it (never the browser) — but a forwarded student JWT
+        // alone doesn't prove the call came from quiz-service rather than the student calling
+        // this directly through the gateway's /api/v1/progress/** catch-all with a fabricated
+        // Score (repeat of the F3 client-trusted-scoring finding, one hop over). Require
+        // X-Internal-Key too, known only to quiz-service (Phần A RBAC audit finding).
         group.MapPost("/record-score", async (RecordScoreRequest request, ClaimsPrincipal principal, IStudentProgressService service, CancellationToken ct) =>
             {
                 await service.RecordScoreAsync(principal.GetUserId(), request.Score, ct);
                 return Results.Ok(ApiResponse.Ok());
             })
-            .AddEndpointFilter<ValidationEndpointFilter<RecordScoreRequest>>();
+            .AddEndpointFilter<ValidationEndpointFilter<RecordScoreRequest>>()
+            .AddEndpointFilter<RequireInternalServiceKeyFilter>();
 
         return app;
     }

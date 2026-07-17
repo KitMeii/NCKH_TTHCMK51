@@ -60,14 +60,17 @@ public static class AuthEndpoints
             .RequireAuthorization();
 
         // Admin-only account management. Intended caller is admin-service (which audits every
-        // change) — see the remarks on admin-service's UserAdminClient. Still gated by
-        // [Authorize(Roles=Admin)] here too as defense in depth, matching every other service's
-        // "don't rely solely on the gateway" convention in this codebase.
+        // change) — see the remarks on admin-service's HttpAuthAdminClient. [Authorize(Roles=Admin)]
+        // alone is not enough: the gateway proxies every sub-path under /api/v1/auth/**, so any
+        // client with a valid Admin JWT could otherwise call these directly and bypass
+        // admin-service's audit log. RequireInternalServiceKeyFilter closes that: only a caller
+        // that also knows InternalService:SharedKey (admin-service) gets through.
         group.MapGet("/users", async (string? role, IAuthService authService, CancellationToken ct) =>
             {
                 var result = await authService.ListUsersAsync(role, ct);
                 return Results.Ok(ApiResponse<IReadOnlyList<UserResponse>>.Ok(result));
             })
+            .AddEndpointFilter<RequireInternalServiceKeyFilter>()
             .RequireAuthorization(policy => policy.RequireRole(Roles.Admin));
 
         group.MapPut("/users/{id:guid}/role", async (Guid id, ChangeRoleRequest request, ClaimsPrincipal principal, IAuthService authService, CancellationToken ct) =>
@@ -81,6 +84,7 @@ public static class AuthEndpoints
                 return Results.Ok(ApiResponse<UserResponse>.Ok(result));
             })
             .AddEndpointFilter<ValidationEndpointFilter<ChangeRoleRequest>>()
+            .AddEndpointFilter<RequireInternalServiceKeyFilter>()
             .RequireAuthorization(policy => policy.RequireRole(Roles.Admin));
 
         return app;

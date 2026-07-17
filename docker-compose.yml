@@ -1,8 +1,14 @@
 # Dev/test orchestration for all 6 services + gateway + SQL Server + Seq, per the approved
 # migration plan (Bước 5.1, DB engine switched Postgres->SQL Server per Bước 0.1-0.2). Only the
 # gateway is published to the host — every other service is reachable solely over the internal
-# "tthcm-net" network, which is what lets each service trust the X-User-Id/X-User-Role headers
-# the gateway forwards (see Shared.Contracts.HeaderNames).
+# "tthcm-net" network. Note this network isolation is not the authorization mechanism: every
+# service independently re-validates the caller's JWT (see AddSharedJwtAuthentication) rather
+# than trusting the X-User-Id/X-User-Role headers the gateway forwards (those are informational
+# only — see Shared.Contracts.HeaderNames remarks). The one place network isolation alone is load
+# -bearing is auth-service's admin-only user endpoints, gated additionally by
+# RequireInternalServiceKeyFilter/InternalService__SharedKey below, since the gateway proxies
+# every sub-path under /api/v1/auth/** and a JWT role check alone can't tell "admin-service" apart
+# from "any client with a stolen Admin JWT" (Phần A RBAC audit finding).
 #
 # Usage: cp .env.example .env, fill in real values, then `docker compose up --build`.
 
@@ -31,6 +37,10 @@ x-service-defaults: &service-defaults
     Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN}
     Seq__Url: http://seq:5341
     Database__AutoMigrate: "true"
+    # Only auth-service (enforces it) and admin-service (the one legitimate caller) actually use
+    # this — see RequireInternalServiceKeyFilter. Harmless no-op env var on every other service,
+    # same as Database__AutoMigrate above being unused by ai-service.
+    InternalService__SharedKey: ${INTERNAL_SERVICE_KEY}
 
 services:
   mssql:

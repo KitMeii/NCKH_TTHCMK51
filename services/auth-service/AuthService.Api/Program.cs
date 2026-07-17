@@ -24,6 +24,7 @@ builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddSharedJwtIssuer();
 builder.Services.AddSharedCors(builder.Configuration);
 builder.Services.AddSharedValidation(Assembly.GetExecutingAssembly());
+builder.Services.AddInternalServiceAuth(builder.Configuration);
 
 builder.Services.AddScoped<IAuthService, AuthServiceImpl>();
 

@@ -25,6 +25,7 @@ builder.Services.AddSharedHealthChecksSqlServer(connectionString);
 builder.Services.AddSharedJwtAuthentication(builder.Configuration);
 builder.Services.AddSharedCors(builder.Configuration);
 builder.Services.AddSharedValidation(Assembly.GetExecutingAssembly());
+builder.Services.AddInternalServiceAuth(builder.Configuration);
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddScoped<IQuestionService, QuestionService>();

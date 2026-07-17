@@ -25,6 +25,15 @@ public sealed class ProgressEndpointsTests : IClassFixture<ProgressApiFactory>
         return request;
     }
 
+    // POST /record-score additionally requires X-Internal-Key — simulates the one legitimate
+    // caller (quiz-service's HttpProgressReporter). See RequireInternalServiceKeyFilter.
+    private static HttpRequestMessage WithAuthAndInternalKey(HttpMethod method, string url, string token)
+    {
+        var request = WithAuth(method, url, token);
+        request.Headers.Add("X-Internal-Key", ProgressApiFactory.TestInternalServiceKey);
+        return request;
+    }
+
     [Fact]
     public async Task Logging_study_time_twice_same_day_accumulates_minutes_and_keeps_streak_at_one()
     {
@@ -73,7 +82,7 @@ public sealed class ProgressEndpointsTests : IClassFixture<ProgressApiFactory>
 
         foreach (var score in new[] { 10m, 6m, 8m })
         {
-            var request = WithAuth(HttpMethod.Post, "/api/v1/progress/record-score", token);
+            var request = WithAuthAndInternalKey(HttpMethod.Post, "/api/v1/progress/record-score", token);
             request.Content = JsonContent.Create(new RecordScoreRequest(score));
             await _client.SendAsync(request);
         }
@@ -94,11 +103,11 @@ public sealed class ProgressEndpointsTests : IClassFixture<ProgressApiFactory>
         _factory.NameLookup.Names[topUser] = "Học viên Giỏi";
         _factory.NameLookup.Names[lowUser] = "Học viên Khá";
 
-        var topRequest = WithAuth(HttpMethod.Post, "/api/v1/progress/record-score", TestTokens.Student(topUser));
+        var topRequest = WithAuthAndInternalKey(HttpMethod.Post, "/api/v1/progress/record-score", TestTokens.Student(topUser));
         topRequest.Content = JsonContent.Create(new RecordScoreRequest(10m));
         await _client.SendAsync(topRequest);
 
-        var lowRequest = WithAuth(HttpMethod.Post, "/api/v1/progress/record-score", TestTokens.Student(lowUser));
+        var lowRequest = WithAuthAndInternalKey(HttpMethod.Post, "/api/v1/progress/record-score", TestTokens.Student(lowUser));
         lowRequest.Content = JsonContent.Create(new RecordScoreRequest(5m));
         await _client.SendAsync(lowRequest);
 
@@ -117,5 +126,20 @@ public sealed class ProgressEndpointsTests : IClassFixture<ProgressApiFactory>
     {
         var response = await _client.GetAsync("/api/v1/progress/me");
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    // Phần A RBAC audit: a student's own valid JWT must not be enough to record an arbitrary
+    // score for themselves — that would let anyone fabricate a leaderboard position without ever
+    // answering a quiz through quiz-service (repeat of the F3 client-trusted-scoring finding).
+    // Only a caller that also knows InternalService:SharedKey (i.e. quiz-service) may proceed.
+    [Fact]
+    public async Task Student_without_internal_key_cannot_record_a_fabricated_score()
+    {
+        var request = WithAuth(HttpMethod.Post, "/api/v1/progress/record-score", TestTokens.Student(Guid.NewGuid()));
+        request.Content = JsonContent.Create(new RecordScoreRequest(10m));
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 }
