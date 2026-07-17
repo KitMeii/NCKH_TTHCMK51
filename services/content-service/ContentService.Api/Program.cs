@@ -2,6 +2,8 @@ using System.Reflection;
 using ContentService.Api.Data;
 using ContentService.Api.Endpoints;
 using ContentService.Api.Services;
+using ContentService.Api.Storage;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Auth;
 using Shared.Infrastructure.Data;
@@ -25,6 +27,16 @@ builder.Services.AddSharedCors(builder.Configuration);
 builder.Services.AddSharedValidation(Assembly.GetExecutingAssembly());
 
 builder.Services.AddScoped<IMaterialService, MaterialService>();
+
+// Platform-owned Cloudinary credentials — the browser never sees these, it uploads to this
+// service instead (POST /materials/upload), matching ai-service's "one platform key, never
+// client-side" convention. See CloudinaryFileStorage remarks.
+builder.Services.Configure<CloudinaryOptions>(builder.Configuration.GetSection(CloudinaryOptions.SectionName));
+builder.Services.AddScoped<IFileStorage, CloudinaryFileStorage>();
+
+// Default Kestrel body limit (~28.6MB) is smaller than the 50MB the upload endpoint allows.
+builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 60_000_000);
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 60_000_000);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

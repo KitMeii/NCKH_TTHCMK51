@@ -1,12 +1,13 @@
 using ContentService.Api.Data;
 using ContentService.Api.Dtos;
 using ContentService.Api.Entities;
+using ContentService.Api.Storage;
 using Microsoft.EntityFrameworkCore;
 using Shared.Infrastructure.Common;
 
 namespace ContentService.Api.Services;
 
-public sealed class MaterialService(ContentDbContext db) : IMaterialService
+public sealed class MaterialService(ContentDbContext db, IFileStorage fileStorage, ILogger<MaterialService> logger) : IMaterialService
 {
     public async Task<IReadOnlyList<MaterialResponse>> ListAsync(bool includeInactive, string? chapter, CancellationToken ct)
     {
@@ -49,6 +50,7 @@ public sealed class MaterialService(ContentDbContext db) : IMaterialService
             FileName = request.FileName.Trim(),
             FileUrl = request.FileUrl.Trim(),
             FileSize = request.FileSize,
+            CloudinaryPublicId = request.CloudinaryPublicId,
             UploadedBy = uploadedBy,
         };
 
@@ -75,6 +77,20 @@ public sealed class MaterialService(ContentDbContext db) : IMaterialService
     {
         var material = await db.Materials.FindAsync([id], ct)
             ?? throw new NotFoundException("Không tìm thấy tài liệu.");
+
+        if (!string.IsNullOrWhiteSpace(material.CloudinaryPublicId))
+        {
+            try
+            {
+                await fileStorage.DeleteAsync(material.CloudinaryPublicId, ct);
+            }
+            catch (Exception ex)
+            {
+                // Best-effort: an orphaned file in Cloudinary is a minor cleanup issue, not a
+                // reason to block the user from deleting the material record.
+                logger.LogWarning(ex, "Failed to delete Cloudinary file {PublicId} for material {MaterialId}", material.CloudinaryPublicId, id);
+            }
+        }
 
         db.Materials.Remove(material);
         await db.SaveChangesAsync(ct);

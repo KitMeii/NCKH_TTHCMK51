@@ -10,8 +10,6 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
     <script src="../api-client.js"></script>
-    <!-- Supabase JS chỉ dùng cho Storage (lưu file PDF) — mọi CRUD dữ liệu đã chuyển qua api-client.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- mammoth + pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -935,22 +933,6 @@
                   id="matUploadStatus"
                   style="font-size: 0.78rem; margin-top: 8px"
                 ></div>
-
-                <div
-                  style="
-                    background: #fff3e0;
-                    border-radius: 8px;
-                    padding: 10px 12px;
-                    margin-top: 10px;
-                    font-size: 0.73rem;
-                    color: #e65100;
-                  "
-                >
-                  <i class="fas fa-info-circle"></i> <strong>Lưu ý:</strong> Cần
-                  tạo bucket <code>materials</code> trong Supabase Storage
-                  (Dashboard → Storage → New bucket → tên:
-                  <code>materials</code> → Public) trước khi upload lần đầu.
-                </div>
               </div>
 
               <!-- Materials list -->
@@ -1141,15 +1123,6 @@
     <script>
       pdfjsLib.GlobalWorkerOptions.workerSrc =
         "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-      // Supabase JS chỉ dùng cho Storage (file PDF) — CRUD dữ liệu đã chuyển hết qua api-client.js
-      const SUPABASE_URL = "https://utyfvjuaktomcnmiqebn.supabase.co";
-      const SUPABASE_ANON_KEY =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0eWZ2anVha3RvbWNubWlxZWJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIwMDI4NzgsImV4cCI6MjA4NzU3ODg3OH0.NU-TRMMHUOAxEHXZStg2yIhSBO-XSH2psODky5f9MxE";
-      const storageClient = supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_ANON_KEY,
-      );
 
       let me = null; // { id, email, name, role, ... } — session user
       let allStudents = [],
@@ -2045,32 +2018,24 @@
         }
 
         status.style.color = "#1565c0";
-        status.textContent = "📤 Đang upload lên Supabase Storage...";
+        status.textContent = "📤 Đang upload lên máy chủ...";
         prog.style.display = "block";
         progFill.style.width = "20%";
 
         try {
-          const filePath = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-          const { error: uploadError } = await storageClient.storage
-            .from("materials")
-            .upload(filePath, file, { cacheControl: "3600", upsert: false });
-
-          if (uploadError) throw new Error("Storage: " + uploadError.message);
+          const uploaded = await uploadMaterialFile(file);
+          const fileUrl = uploaded.fileUrl;
           progFill.style.width = "60%";
           status.textContent = "💾 Đang lưu thông tin...";
-
-          const { data: urlData } = storageClient.storage
-            .from("materials")
-            .getPublicUrl(filePath);
-          const fileUrl = urlData.publicUrl;
 
           await createMaterial({
             title,
             chapter: chapter || "Chung",
             description: desc,
-            fileName: file.name,
+            fileName: uploaded.fileName,
             fileUrl,
-            fileSize: file.size,
+            fileSize: uploaded.fileSize,
+            cloudinaryPublicId: uploaded.publicId,
           });
 
           // ── AI tạo câu hỏi từ PDF qua ai-service ──
@@ -2167,7 +2132,7 @@
           <i class="fas fa-${m.isActive ? "eye-slash" : "eye"}"></i>
         </button>
         <button class="btn btn-sm" style="background:#fce4ec;color:#c62828;border:none;"
-          onclick="deleteMaterialRow('${m.id}','${m.fileUrl.split("/").pop()}')" title="Xóa">
+          onclick="deleteMaterialRow('${m.id}')" title="Xóa">
           <i class="fas fa-trash"></i>
         </button>
       </div>
@@ -2193,16 +2158,16 @@
         loadMaterials();
       }
 
-      async function deleteMaterialRow(id, filePath) {
+      async function deleteMaterialRow(id) {
         if (!confirm("Xóa tài liệu này? Học viên sẽ không thể xem nữa."))
           return;
         try {
+          // content-service deletes the Cloudinary file server-side as part of this call.
           await deleteMaterial(id);
         } catch (err) {
           showToast("Lỗi: " + err.message, "error");
           return;
         }
-        await storageClient.storage.from("materials").remove([filePath]);
         showToast("Đã xóa tài liệu", "success");
         loadMaterials();
       }

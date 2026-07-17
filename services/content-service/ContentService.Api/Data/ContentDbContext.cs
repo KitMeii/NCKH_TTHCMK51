@@ -19,6 +19,7 @@ public sealed class ContentDbContext(DbContextOptions<ContentDbContext> options)
             entity.Property(m => m.Chapter).HasMaxLength(128);
             entity.Property(m => m.FileName).IsRequired().HasMaxLength(512);
             entity.Property(m => m.FileUrl).IsRequired();
+            entity.Property(m => m.CloudinaryPublicId).HasMaxLength(512);
             entity.HasIndex(m => m.Chapter);
         });
     }

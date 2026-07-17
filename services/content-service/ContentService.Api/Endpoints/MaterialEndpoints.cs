@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using ContentService.Api.Dtos;
 using ContentService.Api.Services;
+using ContentService.Api.Storage;
 using Shared.Contracts;
 using Shared.Infrastructure.Auth;
 using Shared.Infrastructure.Common;
@@ -26,6 +27,36 @@ public static class MaterialEndpoints
             var result = await service.GetByIdAsync(id, IsTeacherOrAdmin(principal), ct);
             return Results.Ok(ApiResponse<MaterialResponse>.Ok(result));
         });
+
+        // Raw file upload — server-side, so the browser never holds a storage API key (Cloudinary
+        // replaces the old client-side Supabase Storage upload, see CloudinaryFileStorage
+        // remarks). Only the URL/publicId/metadata this returns are ever sent back to the client;
+        // the client then POSTs those into CreateMaterialRequest below to save the record.
+        group.MapPost("/upload", async (IFormFile file, IFileStorage storage, CancellationToken ct) =>
+            {
+                const long maxFileSizeBytes = 50 * 1024 * 1024;
+                if (file.Length == 0)
+                {
+                    throw new FluentValidation.ValidationException("File rỗng.");
+                }
+
+                if (file.Length > maxFileSizeBytes)
+                {
+                    throw new FluentValidation.ValidationException("File vượt quá 50MB.");
+                }
+
+                if (!string.Equals(file.ContentType, "application/pdf", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new FluentValidation.ValidationException("Chỉ chấp nhận file PDF.");
+                }
+
+                await using var stream = file.OpenReadStream();
+                var uploaded = await storage.UploadAsync(stream, file.FileName, ct);
+                var result = new UploadedFileResponse(uploaded.Url, file.FileName, uploaded.FileSize, uploaded.PublicId);
+                return Results.Ok(ApiResponse<UploadedFileResponse>.Ok(result));
+            })
+            .DisableAntiforgery()
+            .RequireAuthorization(policy => policy.RequireRole(Roles.Teacher, Roles.Admin));
 
         group.MapPost("/", async (CreateMaterialRequest request, ClaimsPrincipal principal, IMaterialService service, CancellationToken ct) =>
             {

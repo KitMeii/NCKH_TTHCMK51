@@ -1,4 +1,5 @@
 using ContentService.Api.Data;
+using ContentService.Api.Storage;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.SqlClient;
@@ -22,6 +23,7 @@ public sealed class ContentApiFactory : WebApplicationFactory<Program>, IAsyncLi
         Environment.GetEnvironmentVariable("TEST_MSSQL_CONNECTION");
 
     private readonly string _databaseName = $"content_tests_{Guid.NewGuid():N}";
+    public readonly FakeFileStorage FileStorage = new();
 
     private bool UseSqlServerBackend => !string.IsNullOrWhiteSpace(SqlServerBaseConnectionString);
 
@@ -64,6 +66,9 @@ public sealed class ContentApiFactory : WebApplicationFactory<Program>, IAsyncLi
                     options.UseInMemoryDatabase(_databaseName);
                 }
             });
+
+            services.RemoveAll<IFileStorage>();
+            services.AddSingleton<IFileStorage>(FileStorage);
         });
     }
 

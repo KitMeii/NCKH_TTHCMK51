@@ -230,6 +230,47 @@ function listMaterials(chapter) {
 function getMaterial(id) {
   return apiFetch(`/api/v1/content/materials/${id}`);
 }
+
+/** Uploads a raw file (PDF) to content-service, which forwards it to Cloudinary server-side —
+ * the browser never holds a storage API key. Returns {fileUrl, fileName, fileSize, publicId};
+ * pass those straight into createMaterial() to save the metadata record (two-step, same shape
+ * as the old Supabase Storage flow, just both steps now go through the Gateway). */
+async function uploadMaterialFile(file) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE}/api/v1/content/materials/upload`, {
+      method: "POST",
+      headers,
+      body: formData,
+    });
+  } catch (networkError) {
+    throw new ApiError("NETWORK_ERROR", "Không thể kết nối máy chủ. Kiểm tra lại kết nối mạng.", 0);
+  }
+
+  if (response.status === 401) {
+    clearSession();
+    window.location.href = "auth.html";
+    throw new ApiError("UNAUTHORIZED", "Phiên đăng nhập đã hết hạn.", 401);
+  }
+
+  const text = await response.text();
+  const json = text ? JSON.parse(text) : { success: response.ok, data: null };
+
+  if (!response.ok || json.success === false) {
+    const error = json.error || {};
+    throw new ApiError(error.code || "UNKNOWN_ERROR", error.message || "Đã xảy ra lỗi.", response.status);
+  }
+
+  return json.data;
+}
+
 function createMaterial(material) {
   return apiFetch("/api/v1/content/materials", { method: "POST", body: material });
 }

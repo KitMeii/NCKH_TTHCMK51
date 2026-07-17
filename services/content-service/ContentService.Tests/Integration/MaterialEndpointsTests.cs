@@ -10,9 +10,11 @@ namespace ContentService.Tests.Integration;
 public sealed class MaterialEndpointsTests : IClassFixture<ContentApiFactory>
 {
     private readonly HttpClient _client;
+    private readonly ContentApiFactory _factory;
 
     public MaterialEndpointsTests(ContentApiFactory factory)
     {
+        _factory = factory;
         _client = factory.CreateClient();
     }
 
@@ -109,5 +111,71 @@ public sealed class MaterialEndpointsTests : IClassFixture<ContentApiFactory>
         var response = await _client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    private static MultipartFormDataContent BuildPdfUpload(byte[] bytes, string fileName)
+    {
+        var fileContent = new ByteArrayContent(bytes);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/pdf");
+        var form = new MultipartFormDataContent { { fileContent, "file", fileName } };
+        return form;
+    }
+
+    [Fact]
+    public async Task Student_cannot_upload_file()
+    {
+        var request = WithAuth(HttpMethod.Post, "/api/v1/content/materials/upload", TestTokens.Student());
+        request.Content = BuildPdfUpload([1, 2, 3], "test.pdf");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Teacher_can_upload_pdf_and_it_goes_through_file_storage_not_the_browser()
+    {
+        var uploadCountBefore = _factory.FileStorage.UploadCallCount;
+
+        var request = WithAuth(HttpMethod.Post, "/api/v1/content/materials/upload", TestTokens.Teacher());
+        request.Content = BuildPdfUpload([1, 2, 3, 4, 5], "lecture.pdf");
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<ApiResponse<UploadedFileResponse>>();
+        Assert.NotNull(body!.Data);
+        Assert.Contains("res.cloudinary.com", body.Data!.FileUrl);
+        Assert.Equal(5, body.Data.FileSize);
+        Assert.Equal(uploadCountBefore + 1, _factory.FileStorage.UploadCallCount);
+    }
+
+    [Fact]
+    public async Task Upload_rejects_non_pdf_content_type()
+    {
+        var request = WithAuth(HttpMethod.Post, "/api/v1/content/materials/upload", TestTokens.Teacher());
+        var fileContent = new ByteArrayContent([1, 2, 3]);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        request.Content = new MultipartFormDataContent { { fileContent, "file", "not-a-pdf.png" } };
+
+        var response = await _client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Delete_material_with_cloudinary_public_id_deletes_from_storage()
+    {
+        var createRequest = WithAuth(HttpMethod.Post, "/api/v1/content/materials", TestTokens.Teacher());
+        createRequest.Content = JsonContent.Create(new CreateMaterialRequest(
+            "Bài xoá", "5", null, "delete-me.pdf", "https://res.cloudinary.com/fake/delete-me.pdf", 100, "tthcm/materials/delete-me-public-id"));
+        var createResponse = await _client.SendAsync(createRequest);
+        var created = await createResponse.Content.ReadFromJsonAsync<ApiResponse<MaterialResponse>>();
+
+        var deleteRequest = WithAuth(HttpMethod.Delete, $"/api/v1/content/materials/{created!.Data!.Id}", TestTokens.Teacher());
+        var deleteResponse = await _client.SendAsync(deleteRequest);
+
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+        Assert.Equal("tthcm/materials/delete-me-public-id", _factory.FileStorage.LastDeletedPublicId);
     }
 }
