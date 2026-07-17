@@ -82,9 +82,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # GHCR repository/tag names must be lowercase; ${{ github.repository }} isn't guaranteed to
+      # be (this repo's owner is "KitMeii", mixed case) — compute a lowercase version once here.
+      - name: Compute lowercase image name
+        id: image
+        run: echo "repo=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
       - uses: docker/build-push-action@v5
         with:
           context: .
           file: services/content-service/ContentService.Api/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}/content-service:${{ github.sha }},ghcr.io/${{ github.repository }}/content-service:latest
+          tags: ghcr.io/${{ steps.image.outputs.repo }}/content-service:${{ github.sha }},ghcr.io/${{ steps.image.outputs.repo }}/content-service:latest
