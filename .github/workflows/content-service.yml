@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     # Real SQL Server for integration tests — see ContentApiFactory / auth-service.yml for the
     # full rationale. Shares the CI_MSSQL_SA_PASSWORD secret with every other service's workflow.
+    # See auth-service.yml for why there's no Docker-level --health-cmd here (proved unreliable
+    # in CI regardless of quoting) and an explicit polling step instead.
     services:
       mssql:
         image: mcr.microsoft.com/mssql/server:2022-latest
@@ -26,12 +28,6 @@ jobs:
           MSSQL_SA_PASSWORD: ${{ secrets.CI_MSSQL_SA_PASSWORD }}
         ports:
           - 1433:1433
-        options: >-
-          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $MSSQL_SA_PASSWORD -C -Q 'SELECT 1' -b -o /dev/null || exit 1"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-          --health-start-period=60s
     env:
       TEST_MSSQL_CONNECTION: Server=localhost,1433;User Id=sa;Password=${{ secrets.CI_MSSQL_SA_PASSWORD }};TrustServerCertificate=True
     steps:
@@ -40,6 +36,24 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+
+      - name: Wait for SQL Server
+        env:
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_MSSQL_SA_PASSWORD }}
+        run: |
+          container=$(docker ps -q --filter "ancestor=mcr.microsoft.com/mssql/server:2022-latest")
+          echo "mssql container id: $container"
+          for i in $(seq 1 30); do
+            if docker exec "$container" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null; then
+              echo "SQL Server is ready (attempt $i)"
+              exit 0
+            fi
+            echo "SQL Server not ready yet, attempt $i/30..."
+            sleep 5
+          done
+          echo "SQL Server did not become ready in time"
+          docker logs "$container"
+          exit 1
 
       - name: Restore
         run: dotnet restore services/content-service/ContentService.Api/ContentService.Api.csproj

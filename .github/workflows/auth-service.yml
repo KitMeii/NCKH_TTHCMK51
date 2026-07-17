@@ -27,6 +27,14 @@ jobs:
     # every IClassFixture<AuthApiFactory> test class gets its own auth_tests_<guid> database,
     # migrated up before tests run and dropped after. Without this env var (e.g. a local
     # `dotnet test` run) the same tests fall back to EF Core InMemory automatically.
+    # No Docker-level --health-cmd on the mssql service: a `docker create --health-cmd="..."`
+    # single-line shell string embedding the secret proved unreliable in this exact CI environment
+    # (SQL Server itself was ready in ~4s every time per its own log, but Docker kept reporting
+    # the container unhealthy for the full retry budget regardless of syntax tried — root cause
+    # never confirmed). Explicit "Wait for SQL Server" step below is a normal multi-line bash
+    # script instead, which is both more robust (proper quoting, no docker-create argument-string
+    # fragility) and more debuggable (its sqlcmd output goes straight into the regular step log,
+    # unlike Docker's opaque healthcheck probe log).
     services:
       mssql:
         image: mcr.microsoft.com/mssql/server:2022-latest
@@ -35,12 +43,6 @@ jobs:
           MSSQL_SA_PASSWORD: ${{ secrets.CI_MSSQL_SA_PASSWORD }}
         ports:
           - 1433:1433
-        options: >-
-          --health-cmd="/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P $MSSQL_SA_PASSWORD -C -Q 'SELECT 1' -b -o /dev/null || exit 1"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-          --health-start-period=60s
     env:
       TEST_MSSQL_CONNECTION: Server=localhost,1433;User Id=sa;Password=${{ secrets.CI_MSSQL_SA_PASSWORD }};TrustServerCertificate=True
     steps:
@@ -49,6 +51,24 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+
+      - name: Wait for SQL Server
+        env:
+          MSSQL_SA_PASSWORD: ${{ secrets.CI_MSSQL_SA_PASSWORD }}
+        run: |
+          container=$(docker ps -q --filter "ancestor=mcr.microsoft.com/mssql/server:2022-latest")
+          echo "mssql container id: $container"
+          for i in $(seq 1 30); do
+            if docker exec "$container" /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b -o /dev/null; then
+              echo "SQL Server is ready (attempt $i)"
+              exit 0
+            fi
+            echo "SQL Server not ready yet, attempt $i/30..."
+            sleep 5
+          done
+          echo "SQL Server did not become ready in time"
+          docker logs "$container"
+          exit 1
 
       - name: Restore
         run: dotnet restore services/auth-service/AuthService.Api/AuthService.Api.csproj
