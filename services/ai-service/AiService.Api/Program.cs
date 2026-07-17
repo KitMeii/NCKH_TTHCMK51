@@ -21,7 +21,20 @@ builder.Services.AddSharedValidation(Assembly.GetExecutingAssembly());
 builder.Services.Configure<GroqOptions>(builder.Configuration.GetSection(GroqOptions.SectionName));
 builder.Services.AddHttpClient<IGroqClient, HttpGroqClient>();
 
-builder.Services.AddMemoryCache();
+var redisConnectionString = builder.Configuration["Redis:ConnectionString"];
+if (!string.IsNullOrWhiteSpace(redisConnectionString))
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisConnectionString;
+        options.InstanceName = "ai-service:";
+    });
+}
+else
+{
+    builder.Services.AddDistributedMemoryCache();
+}
+
 builder.Services.AddSingleton<ResponseCache>();
 
 builder.Services.AddScoped<IChatService, ChatService>();

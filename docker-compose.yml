@@ -51,6 +51,20 @@ services:
       timeout: 5s
       retries: 20
 
+  redis:
+    image: redis:7-alpine
+    # Pure cache, no persistence needed — losing it on restart just means the next few AI
+    # requests recompute instead of hitting the cache, no data loss. Internal network only, no
+    # published port and no password: nothing but ai-service ever talks to it (see the network
+    # isolation note at the top of this file).
+    networks:
+      - tthcm-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   seq:
     image: datalust/seq:latest
     environment:
@@ -107,10 +121,13 @@ services:
     build:
       context: .
       dockerfile: services/ai-service/AiService.Api/Dockerfile
-    depends_on: []
+    depends_on:
+      redis:
+        condition: service_healthy
     environment:
       <<: *default-env
       Groq__ApiKey: ${GROQ_API_KEY}
+      Redis__ConnectionString: redis:6379
 
   progress-service:
     <<: *service-defaults
