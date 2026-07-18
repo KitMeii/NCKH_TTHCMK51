@@ -160,4 +160,39 @@ public sealed class GradingTests : IClassFixture<QuizApiFactory>
         var response = await _client.PostAsJsonAsync("/api/v1/quiz/practice/submit", new SubmitQuizRequest(null, [new SubmitAnswerItem(Guid.NewGuid(), 0)]));
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
+
+    // Phần B CRUD audit: deleting a question bank entry must not silently destroy students'
+    // already-graded results tied to it (OralResult holds the score/AI comment/rubric — the
+    // whole point of the earlier fix that stopped that detail from being lost on refresh).
+    [Fact]
+    public async Task Cannot_delete_oral_question_that_already_has_a_graded_result()
+    {
+        var createRequest = WithAuth(HttpMethod.Post, "/api/v1/quiz/oral-questions", TestTokens.Teacher());
+        createRequest.Content = JsonContent.Create(new CreateOralQuestionRequest("3", "Câu hỏi có kết quả?", "đáp án mẫu", 1));
+        var createResponse = await _client.SendAsync(createRequest);
+        var oralQuestion = (await createResponse.Content.ReadFromJsonAsync<ApiResponse<OralQuestionResponse>>())!.Data!;
+
+        var submitRequest = WithAuth(HttpMethod.Post, "/api/v1/quiz/oral/submit", TestTokens.Student());
+        submitRequest.Content = JsonContent.Create(new SubmitOralRequest(oralQuestion.Id, "câu trả lời của học viên", null));
+        await _client.SendAsync(submitRequest);
+
+        var deleteRequest = WithAuth(HttpMethod.Delete, $"/api/v1/quiz/oral-questions/{oralQuestion.Id}", TestTokens.Teacher());
+        var deleteResponse = await _client.SendAsync(deleteRequest);
+
+        Assert.Equal(HttpStatusCode.Conflict, deleteResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task Can_delete_oral_question_with_no_results()
+    {
+        var createRequest = WithAuth(HttpMethod.Post, "/api/v1/quiz/oral-questions", TestTokens.Teacher());
+        createRequest.Content = JsonContent.Create(new CreateOralQuestionRequest("3", "Câu hỏi chưa ai trả lời?", "đáp án mẫu", 1));
+        var createResponse = await _client.SendAsync(createRequest);
+        var oralQuestion = (await createResponse.Content.ReadFromJsonAsync<ApiResponse<OralQuestionResponse>>())!.Data!;
+
+        var deleteRequest = WithAuth(HttpMethod.Delete, $"/api/v1/quiz/oral-questions/{oralQuestion.Id}", TestTokens.Teacher());
+        var deleteResponse = await _client.SendAsync(deleteRequest);
+
+        Assert.Equal(HttpStatusCode.OK, deleteResponse.StatusCode);
+    }
 }

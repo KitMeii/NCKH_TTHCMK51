@@ -7,11 +7,12 @@ public sealed class CreateQuestionRequestValidator : AbstractValidator<CreateQue
 {
     public CreateQuestionRequestValidator()
     {
-        RuleFor(x => x.QuestionText).NotEmpty();
-        RuleFor(x => x.OptionA).NotEmpty();
-        RuleFor(x => x.OptionB).NotEmpty();
-        RuleFor(x => x.OptionC).NotEmpty();
-        RuleFor(x => x.OptionD).NotEmpty();
+        RuleFor(x => x.QuestionText).NotEmpty().MaximumLength(2000);
+        RuleFor(x => x.OptionA).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.OptionB).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.OptionC).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.OptionD).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.Explanation).MaximumLength(2000);
         RuleFor(x => x.CorrectAnswer).InclusiveBetween(0, 3);
     }
 }
@@ -20,11 +21,12 @@ public sealed class UpdateQuestionRequestValidator : AbstractValidator<UpdateQue
 {
     public UpdateQuestionRequestValidator()
     {
-        RuleFor(x => x.QuestionText).NotEmpty();
-        RuleFor(x => x.OptionA).NotEmpty();
-        RuleFor(x => x.OptionB).NotEmpty();
-        RuleFor(x => x.OptionC).NotEmpty();
-        RuleFor(x => x.OptionD).NotEmpty();
+        RuleFor(x => x.QuestionText).NotEmpty().MaximumLength(2000);
+        RuleFor(x => x.OptionA).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.OptionB).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.OptionC).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.OptionD).NotEmpty().MaximumLength(500);
+        RuleFor(x => x.Explanation).MaximumLength(2000);
         RuleFor(x => x.CorrectAnswer).InclusiveBetween(0, 3);
     }
 }
@@ -33,7 +35,8 @@ public sealed class CreateOralQuestionRequestValidator : AbstractValidator<Creat
 {
     public CreateOralQuestionRequestValidator()
     {
-        RuleFor(x => x.QuestionText).NotEmpty();
+        RuleFor(x => x.QuestionText).NotEmpty().MaximumLength(2000);
+        RuleFor(x => x.ExpectedAnswer).MaximumLength(4000);
         RuleFor(x => x.Difficulty).InclusiveBetween(1, 3);
     }
 }
@@ -42,7 +45,8 @@ public sealed class UpdateOralQuestionRequestValidator : AbstractValidator<Updat
 {
     public UpdateOralQuestionRequestValidator()
     {
-        RuleFor(x => x.QuestionText).NotEmpty();
+        RuleFor(x => x.QuestionText).NotEmpty().MaximumLength(2000);
+        RuleFor(x => x.ExpectedAnswer).MaximumLength(4000);
         RuleFor(x => x.Difficulty).InclusiveBetween(1, 3);
     }
 }
@@ -76,6 +80,9 @@ public sealed class SubmitOralRequestValidator : AbstractValidator<SubmitOralReq
 {
     public SubmitOralRequestValidator()
     {
-        RuleFor(x => x.MainAnswer).NotEmpty();
+        RuleFor(x => x.MainAnswer).NotEmpty().MaximumLength(4000);
+        RuleFor(x => x.FollowupAnswers).Must(a => a is null || a.Count <= 10)
+            .WithMessage("Tối đa 10 câu trả lời bổ sung.");
+        RuleForEach(x => x.FollowupAnswers).MaximumLength(4000);
     }
 }

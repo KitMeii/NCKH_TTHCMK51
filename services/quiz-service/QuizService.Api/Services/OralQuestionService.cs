@@ -69,6 +69,15 @@ public sealed class OralQuestionService(QuizDbContext db) : IOralQuestionService
         var question = await db.OralQuestions.FindAsync([id], ct)
             ?? throw new NotFoundException("Không tìm thấy câu hỏi vấn đáp.");
 
+        // Students' graded oral results (score, AI comment, rubric breakdown — the whole point of
+        // the earlier fix that stopped this detail from being lost) reference this question. A
+        // hard delete here would silently destroy that history, so refuse instead of cascading.
+        var hasResults = await db.OralResults.AnyAsync(r => r.QuestionId == id, ct);
+        if (hasResults)
+        {
+            throw new ConflictException("Không thể xoá câu hỏi đã có học viên trả lời — đã có kết quả chấm điểm gắn với câu hỏi này.");
+        }
+
         db.OralQuestions.Remove(question);
         await db.SaveChangesAsync(ct);
     }

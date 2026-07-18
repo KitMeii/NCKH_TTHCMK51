@@ -40,8 +40,12 @@ public sealed class GradeOralRequestValidator : AbstractValidator<GradeOralReque
 {
     public GradeOralRequestValidator()
     {
-        RuleFor(x => x.QuestionText).NotEmpty();
-        RuleFor(x => x.MainAnswer).NotEmpty();
+        RuleFor(x => x.QuestionText).NotEmpty().MaximumLength(2000);
+        RuleFor(x => x.ExpectedAnswer).MaximumLength(4000);
+        RuleFor(x => x.MainAnswer).NotEmpty().MaximumLength(4000);
+        RuleFor(x => x.FollowupAnswers).Must(a => a.Count <= 10)
+            .WithMessage("Tối đa 10 câu trả lời bổ sung.");
+        RuleForEach(x => x.FollowupAnswers).MaximumLength(4000);
     }
 }
 
