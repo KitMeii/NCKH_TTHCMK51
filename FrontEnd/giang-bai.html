@@ -806,6 +806,7 @@
             >
               <button
                 onclick="toggleSelfUpload()"
+                aria-label="Quay lại"
                 style="
                   background: none;
                   border: none;
@@ -888,6 +889,7 @@
                 class="slide-nav-btn"
                 id="slidePrev"
                 onclick="changeSlidePage(-1)"
+                aria-label="Trang trước"
               >
                 <i class="fas fa-chevron-left"></i>
               </button>
@@ -899,6 +901,7 @@
                 class="slide-nav-btn"
                 id="slideNext"
                 onclick="changeSlidePage(1)"
+                aria-label="Trang tiếp theo"
               >
                 <i class="fas fa-chevron-right"></i>
               </button>
@@ -970,6 +973,7 @@
                 class="ctrl-btn"
                 onclick="prevSegment()"
                 title="Đoạn trước"
+                aria-label="Đoạn trước"
               >
                 <i class="fas fa-step-backward"></i>
               </button>
@@ -977,6 +981,7 @@
                 class="ctrl-btn ctrl-play"
                 id="playBtn"
                 onclick="togglePlay()"
+                aria-label="Phát hoặc tạm dừng"
               >
                 <i class="fas fa-play" id="playIcon"></i>
               </button>
@@ -984,6 +989,7 @@
                 class="ctrl-btn"
                 onclick="nextSegment()"
                 title="Đoạn tiếp"
+                aria-label="Đoạn tiếp"
               >
                 <i class="fas fa-step-forward"></i>
               </button>
@@ -991,6 +997,7 @@
                 class="ctrl-btn"
                 onclick="replaySegment()"
                 title="Đọc lại đoạn này"
+                aria-label="Đọc lại đoạn này"
               >
                 <i class="fas fa-redo"></i>
               </button>
@@ -1078,13 +1085,23 @@
       <a href="giang-bai.html" class="nav-item active"
         ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
       >
-      <a href="cai-dat.html" class="nav-item"
-        ><i class="fas fa-cog"></i><span>Cài đặt</span></a
+      <a href="cai-dat.html" class="nav-item" id="navSettings"
+        ><i class="fas fa-cog"></i><span>Tài khoản</span></a
       >
-      <a href="admin.html" class="nav-item"
-        ><i class="fas fa-shield-alt"></i><span>Admin</span></a
+      <a href="admin.html" class="nav-item" id="navAdmin"
+        ><i class="fas fa-shield-alt"></i><span>Tài khoản</span></a
       >
     </nav>
+
+    <script>
+      (function () {
+        var session = getSession();
+        var role = session && session.user && session.user.role;
+        var hideId = role === "Teacher" || role === "Admin" ? "navSettings" : "navAdmin";
+        var el = document.getElementById(hideId);
+        if (el) el.remove();
+      })();
+    </script>
 
     <script>
       if (localStorage.getItem("darkMode") === "1")

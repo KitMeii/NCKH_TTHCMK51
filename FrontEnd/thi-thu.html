@@ -794,6 +794,7 @@
               id="tnPrev"
               onclick="goTN(-1)"
               disabled
+              aria-label="Câu trước"
             >
               <i class="fas fa-chevron-left"></i>
             </button>
@@ -884,13 +885,23 @@
       <a href="giang-bai.html" class="nav-item"
         ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
       >
-      <a href="cai-dat.html" class="nav-item"
-        ><i class="fas fa-cog"></i><span>Cài đặt</span></a
+      <a href="cai-dat.html" class="nav-item" id="navSettings"
+        ><i class="fas fa-cog"></i><span>Tài khoản</span></a
       >
-      <a href="admin.html" class="nav-item"
-        ><i class="fas fa-shield-alt"></i><span>Admin</span></a
+      <a href="admin.html" class="nav-item" id="navAdmin"
+        ><i class="fas fa-shield-alt"></i><span>Tài khoản</span></a
       >
     </nav>
+
+    <script>
+      (function () {
+        var session = getSession();
+        var role = session && session.user && session.user.role;
+        var hideId = role === "Teacher" || role === "Admin" ? "navSettings" : "navAdmin";
+        var el = document.getElementById(hideId);
+        if (el) el.remove();
+      })();
+    </script>
 
     <script>
       if (localStorage.getItem("darkMode") === "1")
@@ -1199,7 +1210,7 @@
           <textarea class="voice-textarea" id="vdAns${idx}" placeholder="Câu trả lời sẽ được điền tự động sau khi nói. Bạn có thể chỉnh sửa thêm..."></textarea>
           <div class="voice-edit-note">✏️ Bạn có thể chỉnh sửa câu trả lời trước khi gửi</div>
           <div class="voice-actions">
-            <button class="mic-btn" id="vdMicBtn${idx}" onclick="toggleVoice(${idx})">
+            <button class="mic-btn" id="vdMicBtn${idx}" onclick="toggleVoice(${idx})" aria-label="Bắt đầu ghi âm" aria-pressed="false">
               <i class="fas fa-microphone"></i>
             </button>
             <div class="mic-hint">
@@ -1306,7 +1317,7 @@ Hãy đặt đúng 2 câu hỏi phụ ngắn gọn để kiểm tra sâu hơn s�
       </div>
       <div class="followup-voice-box">
         <div class="followup-mic-row">
-          <button class="followup-mic-btn" id="fuMicBtn${qIdx}_${fIdx}" onclick="toggleFollowupVoice(${qIdx},${fIdx})">
+          <button class="followup-mic-btn" id="fuMicBtn${qIdx}_${fIdx}" onclick="toggleFollowupVoice(${qIdx},${fIdx})" aria-label="Bắt đầu ghi âm" aria-pressed="false">
             <i class="fas fa-microphone"></i>
           </button>
           <span class="followup-transcript" id="fuTranscript${qIdx}_${fIdx}">Nhấn mic để trả lời bằng giọng nói...</span>
@@ -1654,6 +1665,8 @@ Hãy đặt đúng 2 câu hỏi phụ ngắn gọn để kiểm tra sâu hơn s�
         btn.innerHTML = recording
           ? '<i class="fas fa-stop"></i>'
           : '<i class="fas fa-microphone"></i>';
+        btn.setAttribute("aria-pressed", String(recording));
+        btn.setAttribute("aria-label", recording ? "Dừng ghi âm" : "Bắt đầu ghi âm");
       }
 
       function setVdStatus(idx, state, text) {
@@ -1744,6 +1757,8 @@ Hãy đặt đúng 2 câu hỏi phụ ngắn gọn để kiểm tra sâu hơn s�
         btn.innerHTML = recording
           ? '<i class="fas fa-stop"></i>'
           : '<i class="fas fa-microphone"></i>';
+        btn.setAttribute("aria-pressed", String(recording));
+        btn.setAttribute("aria-label", recording ? "Dừng ghi âm" : "Bắt đầu ghi âm");
       }
 
       // ── Materials sidebar for exam page ──

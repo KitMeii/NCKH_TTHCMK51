@@ -1411,13 +1411,23 @@
       <a href="giang-bai.html" class="nav-item"
         ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
       >
-      <a href="cai-dat.html" class="nav-item"
-        ><i class="fas fa-cog"></i><span>Cài đặt</span></a
+      <a href="cai-dat.html" class="nav-item" id="navSettings"
+        ><i class="fas fa-cog"></i><span>Tài khoản</span></a
       >
-      <a href="admin.html" class="nav-item"
-        ><i class="fas fa-shield-alt"></i><span>Admin</span></a
+      <a href="admin.html" class="nav-item" id="navAdmin"
+        ><i class="fas fa-shield-alt"></i><span>Tài khoản</span></a
       >
     </nav>
+
+    <script>
+      (function () {
+        var session = getSession();
+        var role = session && session.user && session.user.role;
+        var hideId = role === "Teacher" || role === "Admin" ? "navSettings" : "navAdmin";
+        var el = document.getElementById(hideId);
+        if (el) el.remove();
+      })();
+    </script>
     <script>
       // Tài liệu tech stack nội bộ — chỉ Giảng viên/Admin được xem (khắc phục F7: trang này
       // trước đây public hoàn toàn, không cần đăng nhập).

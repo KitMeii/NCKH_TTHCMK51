@@ -695,12 +695,12 @@
     ></div>
 
     <!-- History Sidebar -->
-    <div class="history-sidebar" id="historySidebar">
+    <div class="history-sidebar" id="historySidebar" role="dialog" aria-label="Lịch sử chat" aria-hidden="true">
       <div class="sidebar-head">
         <div class="sidebar-head-title">
           <i class="fas fa-history"></i> Lịch sử Chat
         </div>
-        <button class="sidebar-close" onclick="closeSidebar()">
+        <button class="sidebar-close" onclick="closeSidebar()" aria-label="Đóng lịch sử chat">
           <i class="fas fa-times"></i>
         </button>
       </div>
@@ -721,7 +721,7 @@
       <div class="chat-wrap">
         <!-- Chat header -->
         <div class="chat-top">
-          <button class="hist-btn" onclick="openSidebar()" title="Lịch sử chat">
+          <button class="hist-btn" onclick="openSidebar()" title="Lịch sử chat" aria-label="Mở lịch sử chat">
             <i class="fas fa-bars"></i>
           </button>
           <div class="chat-title-wrap">
@@ -788,11 +788,13 @@
               id="webToggle"
               onclick="toggleWebMode()"
               title="Tìm kiếm web"
+              aria-label="Bật/tắt tìm kiếm web"
+              aria-pressed="false"
             >
               <i class="fas fa-globe"></i>
             </button>
           </div>
-          <button class="chat-send" id="sendBtn" onclick="sendMessage()">
+          <button class="chat-send" id="sendBtn" onclick="sendMessage()" aria-label="Gửi tin nhắn">
             <i class="fas fa-paper-plane"></i>
           </button>
         </div>
@@ -821,13 +823,23 @@
       <a href="giang-bai.html" class="nav-item"
         ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
       >
-      <a href="cai-dat.html" class="nav-item"
-        ><i class="fas fa-cog"></i><span>Cài đặt</span></a
+      <a href="cai-dat.html" class="nav-item" id="navSettings"
+        ><i class="fas fa-cog"></i><span>Tài khoản</span></a
       >
-      <a href="admin.html" class="nav-item"
-        ><i class="fas fa-shield-alt"></i><span>Admin</span></a
+      <a href="admin.html" class="nav-item" id="navAdmin"
+        ><i class="fas fa-shield-alt"></i><span>Tài khoản</span></a
       >
     </nav>
+
+    <script>
+      (function () {
+        var session = getSession();
+        var role = session && session.user && session.user.role;
+        var hideId = role === "Teacher" || role === "Admin" ? "navSettings" : "navAdmin";
+        var el = document.getElementById(hideId);
+        if (el) el.remove();
+      })();
+    </script>
 
     <script>
       if (localStorage.getItem("darkMode") === "1")
@@ -989,7 +1001,7 @@
               <span style="margin-left:4px;">${msgCount} tin</span>
             </div>
           </div>
-          <button class="session-delete" onclick="deleteSession('${s.id}', event)" title="Xóa">
+          <button class="session-delete" onclick="deleteSession('${s.id}', event)" title="Xóa" aria-label="Xóa cuộc trò chuyện ${escHtml(s.title)}">
             <i class="fas fa-trash"></i>
           </button>
         </div>`;
@@ -1014,10 +1026,12 @@
       // ── SIDEBAR UI ──
       function openSidebar() {
         document.getElementById("historySidebar").classList.add("open");
+        document.getElementById("historySidebar").setAttribute("aria-hidden", "false");
         document.getElementById("sidebarOverlay").classList.add("show");
       }
       function closeSidebar() {
         document.getElementById("historySidebar").classList.remove("open");
+        document.getElementById("historySidebar").setAttribute("aria-hidden", "true");
         document.getElementById("sidebarOverlay").classList.remove("show");
       }
 
@@ -1054,6 +1068,7 @@
         const btn = document.getElementById("webToggle");
         btn.className = `web-toggle${webMode ? " on" : ""}`;
         btn.title = webMode ? "Web đang BẬT" : "Tìm kiếm web";
+        btn.setAttribute("aria-pressed", String(webMode));
       }
 
       // ── MESSAGES ──

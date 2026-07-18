@@ -167,10 +167,10 @@
           </div>
         </a>
         <div class="header-actions">
-          <button class="hdr-btn" id="searchBtn">
+          <button class="hdr-btn" id="searchBtn" aria-label="Tìm kiếm">
             <i class="fas fa-search"></i>
           </button>
-          <button class="hdr-btn" id="profileBtn">
+          <button class="hdr-btn" id="profileBtn" aria-label="Hồ sơ cá nhân">
             <i class="fas fa-user-circle"></i>
           </button>
         </div>
@@ -392,20 +392,30 @@
       <a href="giang-bai.html" class="nav-item"
         ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
       >
-      <a href="cai-dat.html" class="nav-item"
-        ><i class="fas fa-cog"></i><span>Cài đặt</span></a
+      <a href="cai-dat.html" class="nav-item" id="navSettings"
+        ><i class="fas fa-cog"></i><span>Tài khoản</span></a
       >
-      <a href="admin.html" class="nav-item"
-        ><i class="fas fa-shield-alt"></i><span>Admin</span></a
+      <a href="admin.html" class="nav-item" id="navAdmin"
+        ><i class="fas fa-shield-alt"></i><span>Tài khoản</span></a
       >
     </nav>
 
+    <script>
+      (function () {
+        var session = getSession();
+        var role = session && session.user && session.user.role;
+        var hideId = role === "Teacher" || role === "Admin" ? "navSettings" : "navAdmin";
+        var el = document.getElementById(hideId);
+        if (el) el.remove();
+      })();
+    </script>
+
     <!-- Profile Modal -->
-    <div class="modal" id="profileModal">
-      <div class="modal-box">
+    <div class="modal" id="profileModal" aria-hidden="true">
+      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
         <div class="modal-header">
-          <h3><i class="fas fa-user-circle"></i> Hồ sơ học viên</h3>
-          <button class="modal-close" onclick="closeModal('profileModal')">
+          <h3 id="profileModalTitle"><i class="fas fa-user-circle"></i> Hồ sơ học viên</h3>
+          <button class="modal-close" onclick="closeModal('profileModal')" aria-label="Đóng">
             ×
           </button>
         </div>
@@ -482,11 +492,11 @@
     </div>
 
     <!-- Search Modal -->
-    <div class="modal" id="searchModal">
-      <div class="modal-box">
+    <div class="modal" id="searchModal" aria-hidden="true">
+      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="searchModalTitle">
         <div class="modal-header">
-          <h3><i class="fas fa-search"></i> Tìm kiếm</h3>
-          <button class="modal-close" onclick="closeModal('searchModal')">
+          <h3 id="searchModalTitle"><i class="fas fa-search"></i> Tìm kiếm</h3>
+          <button class="modal-close" onclick="closeModal('searchModal')" aria-label="Đóng">
             ×
           </button>
         </div>
@@ -622,8 +632,8 @@
     </div>
 
     <!-- Onboarding Modal (học viên mới) -->
-    <div class="modal" id="onboardingModal">
-      <div class="modal-box">
+    <div class="modal" id="onboardingModal" aria-hidden="true">
+      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="onboardingModalTitle">
         <div
           class="modal-header"
           style="
@@ -631,7 +641,7 @@
             border-radius: 14px 14px 0 0;
           "
         >
-          <h3 style="color: white">
+          <h3 id="onboardingModalTitle" style="color: white">
             <i class="fas fa-star" style="color: #f9a825"></i> Chào mừng đến
             TTHCM!
           </h3>
@@ -874,10 +884,14 @@
       }
 
       function openModal(id) {
-        document.getElementById(id).classList.add("show");
+        const el = document.getElementById(id);
+        el.classList.add("show");
+        el.setAttribute("aria-hidden", "false");
       }
       function closeModal(id) {
-        document.getElementById(id).classList.remove("show");
+        const el = document.getElementById(id);
+        el.classList.remove("show");
+        el.setAttribute("aria-hidden", "true");
       }
       function dismissOnboarding() {
         if (profile)
