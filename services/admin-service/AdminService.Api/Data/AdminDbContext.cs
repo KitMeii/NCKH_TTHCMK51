@@ -16,6 +16,9 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
         {
             entity.ToTable("role_change_audits");
             entity.HasKey(a => a.Id);
+            // 32 to match User.Role in auth-service — both hold the same Roles.All values.
+            entity.Property(a => a.OldRole).HasMaxLength(32);
+            entity.Property(a => a.NewRole).HasMaxLength(32);
             entity.HasIndex(a => a.ChangedAtUtc);
         });
 
@@ -24,6 +27,8 @@ public sealed class AdminDbContext(DbContextOptions<AdminDbContext> options) : D
             entity.ToTable("system_configs");
             entity.HasKey(c => c.Key);
             entity.Property(c => c.Key).HasMaxLength(128);
+            // Matches SetConfigRequestValidator's MaximumLength(4000).
+            entity.Property(c => c.Value).HasMaxLength(4000);
         });
     }
 }
