@@ -5,10 +5,12 @@
 # service independently re-validates the caller's JWT (see AddSharedJwtAuthentication) rather
 # than trusting the X-User-Id/X-User-Role headers the gateway forwards (those are informational
 # only — see Shared.Contracts.HeaderNames remarks). The one place network isolation alone is load
-# -bearing is auth-service's admin-only user endpoints, gated additionally by
-# RequireInternalServiceKeyFilter/InternalService__SharedKey below, since the gateway proxies
-# every sub-path under /api/v1/auth/** and a JWT role check alone can't tell "admin-service" apart
-# from "any client with a stolen Admin JWT" (Phần A RBAC audit finding).
+# -bearing is auth-service's admin-only user endpoints and progress-service's /record-score,
+# gated additionally by RequireInternalServiceKeyFilter/InternalService__SharedKey (set only on
+# auth-service, admin-service, progress-service, quiz-service below — every other service has no
+# use for it and doesn't hold it), since the gateway proxies every sub-path under a service's
+# route prefix and a JWT role check alone can't tell "the legitimate caller service" apart from
+# "any client with a stolen JWT of the right role" (Phần A RBAC audit finding).
 #
 # Usage: cp .env.example .env, fill in real values, then `docker compose up --build`.
 
@@ -37,10 +39,6 @@ x-service-defaults: &service-defaults
     Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN}
     Seq__Url: http://seq:5341
     Database__AutoMigrate: "true"
-    # Only auth-service (enforces it) and admin-service (the one legitimate caller) actually use
-    # this — see RequireInternalServiceKeyFilter. Harmless no-op env var on every other service,
-    # same as Database__AutoMigrate above being unused by ai-service.
-    InternalService__SharedKey: ${INTERNAL_SERVICE_KEY}
 
 services:
   mssql:
@@ -104,6 +102,11 @@ services:
       <<: *default-env
       ConnectionStrings__AuthDb: Server=mssql,1433;Database=tthcm;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
       Seed__Enabled: ${SEED_DEMO_ACCOUNTS:-false}
+      # Enforces RequireInternalServiceKeyFilter on GET /users and PUT /users/{id}/role — only
+      # admin-service is a legitimate caller. Scoped to just the 4 services that need it (not the
+      # shared default-env block) so ai-service/content-service/gateway don't hold a secret they
+      # have no use for (Phần G follow-up to the Phần A RBAC audit finding).
+      InternalService__SharedKey: ${INTERNAL_SERVICE_KEY}
 
   content-service:
     <<: *service-defaults
@@ -125,6 +128,9 @@ services:
     environment:
       <<: *default-env
       ConnectionStrings__QuizDb: Server=mssql,1433;Database=tthcm;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
+      # quiz-service is the one legitimate caller of progress-service's POST /record-score —
+      # see InternalService__SharedKey remarks on auth-service above.
+      InternalService__SharedKey: ${INTERNAL_SERVICE_KEY}
 
   ai-service:
     <<: *service-defaults
@@ -147,6 +153,9 @@ services:
     environment:
       <<: *default-env
       ConnectionStrings__ProgressDb: Server=mssql,1433;Database=tthcm;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
+      # Enforces RequireInternalServiceKeyFilter on POST /record-score — see
+      # InternalService__SharedKey remarks on auth-service above.
+      InternalService__SharedKey: ${INTERNAL_SERVICE_KEY}
 
   admin-service:
     <<: *service-defaults
@@ -156,6 +165,9 @@ services:
     environment:
       <<: *default-env
       ConnectionStrings__AdminDb: Server=mssql,1433;Database=tthcm;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True
+      # admin-service is the one legitimate caller of auth-service's GET /users and PUT
+      # /users/{id}/role — see InternalService__SharedKey remarks on auth-service above.
+      InternalService__SharedKey: ${INTERNAL_SERVICE_KEY}
 
   gateway:
     build:
