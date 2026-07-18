@@ -1041,6 +1041,27 @@
               </div>
               <div class="card">
                 <div class="card-title">
+                  <i class="fas fa-sliders-h"></i>Cấu hình hệ thống
+                </div>
+                <div id="systemConfigList" style="font-size: 0.82rem; margin-bottom: 10px;">
+                  <div class="empty">Đang tải...</div>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+                  <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
+                    <label class="form-label">Key</label
+                    ><input class="form-input" id="config-key" placeholder="VD: ai.model" />
+                  </div>
+                  <div class="form-group" style="flex: 2; min-width: 200px; margin-bottom: 0;">
+                    <label class="form-label">Value</label
+                    ><input class="form-input" id="config-value" placeholder="Giá trị" />
+                  </div>
+                  <button class="btn btn-primary btn-sm" onclick="saveSystemConfigEntry()">
+                    <i class="fas fa-save"></i> Lưu
+                  </button>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-title">
                   <i class="fas fa-trash-alt" style="color: var(--red)"></i>Xóa
                   dữ liệu
                 </div>
@@ -1159,6 +1180,7 @@
         if (me.role === "Admin") {
           loadStudents();
           loadAuditLog();
+          loadSystemConfig();
         }
       }
 
@@ -1179,7 +1201,10 @@
         if (name === "questions") loadQuestions();
         if (name === "students" && me.role === "Admin") loadStudents();
         if (name === "oral") loadOralQuestions();
-        if (name === "settings" && me.role === "Admin") loadAuditLog();
+        if (name === "settings" && me.role === "Admin") {
+          loadAuditLog();
+          loadSystemConfig();
+        }
       }
 
       // ============================================================
@@ -1318,6 +1343,47 @@
             .join("");
         } catch (err) {
           el.innerHTML = `<div class="empty">Lỗi: ${err.message}</div>`;
+        }
+      }
+
+      async function loadSystemConfig() {
+        const el = document.getElementById("systemConfigList");
+        if (!el || me.role !== "Admin") return;
+        try {
+          const configs = await adminGetConfig();
+          if (!configs.length) {
+            el.innerHTML = '<div class="empty">Chưa có cấu hình nào</div>';
+            return;
+          }
+          el.innerHTML = configs
+            .map(
+              (c) =>
+                `<div style="padding:6px 0;border-bottom:1px solid var(--gray-100); display:flex; justify-content:space-between; gap:8px;">
+          <span><strong>${c.key}</strong> = ${c.value}</span>
+          <span style="color:var(--gray-500); white-space:nowrap;">${formatDate(c.updatedAtUtc)}</span>
+        </div>`,
+            )
+            .join("");
+        } catch (err) {
+          el.innerHTML = `<div class="empty">Lỗi: ${err.message}</div>`;
+        }
+      }
+
+      async function saveSystemConfigEntry() {
+        const key = document.getElementById("config-key").value.trim();
+        const value = document.getElementById("config-value").value.trim();
+        if (!key || !value) {
+          showToast("Cần nhập cả key và value", "error");
+          return;
+        }
+        try {
+          await adminSetConfig(key, value);
+          document.getElementById("config-key").value = "";
+          document.getElementById("config-value").value = "";
+          showToast("Đã lưu cấu hình", "success");
+          loadSystemConfig();
+        } catch (err) {
+          showToast("Lỗi: " + err.message, "error");
         }
       }
 
@@ -1660,8 +1726,17 @@
       async function clearOralQuestions() {
         if (!confirm("⚠️ Xóa TẤT CẢ câu hỏi vấn đáp?")) return;
         const ids = allOralQ.map((q) => q.id);
-        await Promise.allSettled(ids.map((id) => deleteOralQuestion(id)));
-        showToast("Đã xóa câu hỏi vấn đáp", "success");
+        const results = await Promise.allSettled(ids.map((id) => deleteOralQuestion(id)));
+        const failed = results.filter((r) => r.status === "rejected").length;
+        const deleted = results.length - failed;
+        if (failed > 0) {
+          showToast(
+            `Đã xóa ${deleted}/${results.length} câu hỏi — ${failed} câu đã có học viên trả lời nên không thể xóa.`,
+            "error"
+          );
+        } else {
+          showToast("Đã xóa câu hỏi vấn đáp", "success");
+        }
         loadOralQuestions();
       }
 
