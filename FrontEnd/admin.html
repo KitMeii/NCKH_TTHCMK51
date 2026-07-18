@@ -395,6 +395,22 @@
       .q-card:hover {
         border-color: #ffcdd2;
       }
+      @media (min-width: 768px) {
+        #questionsList,
+        #oralList {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+          gap: 8px;
+        }
+        #questionsList .q-card,
+        #oralList .q-card {
+          margin-bottom: 0;
+        }
+        #questionsList .empty,
+        #oralList .empty {
+          grid-column: 1 / -1;
+        }
+      }
       .q-chapter {
         font-size: 0.68rem;
         font-weight: 700;
@@ -1453,7 +1469,7 @@
             })
             .join("") +
           (list.length > 50
-            ? `<div style="text-align:center;padding:12px;font-size:0.78rem;color:var(--gray-400);">Hiển thị 50/${list.length} câu. Import thêm để bổ sung.</div>`
+            ? `<div style="grid-column:1/-1;text-align:center;padding:12px;font-size:0.78rem;color:var(--gray-400);">Hiển thị 50/${list.length} câu. Import thêm để bổ sung.</div>`
             : "");
       }
 
