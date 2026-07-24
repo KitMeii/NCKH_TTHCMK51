@@ -221,9 +221,18 @@
       (function () {
         var session = getSession();
         var role = session && session.user && session.user.role;
-        var hideId = role === "Teacher" || role === "Admin" ? "navSettings" : "navAdmin";
-        var el = document.getElementById(hideId);
-        if (el) el.remove();
+        if (role === "Teacher" || role === "Admin") {
+          document.getElementById("navSettings")?.remove();
+          var navAdmin = document.getElementById("navAdmin");
+          if (navAdmin) {
+            navAdmin.href =
+              role === "Admin"
+                ? "admin/quan-tri-he-thong.html"
+                : "teacher/quan-ly-noi-dung.html";
+          }
+        } else {
+          document.getElementById("navAdmin")?.remove();
+        }
       })();
     </script>
 
