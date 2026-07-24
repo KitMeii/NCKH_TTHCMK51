@@ -29,7 +29,15 @@ function getToken() {
 
 function getStoredUser() {
   const raw = localStorage.getItem(STORAGE_KEYS.user);
-  return raw ? JSON.parse(raw) : null;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    // Dữ liệu hỏng (vd. còn sót từ 1 schema session cũ) — coi như chưa có user thay vì
+    // throw và làm hỏng mọi script đọc session (guard RBAC, nav-correction...).
+    localStorage.removeItem(STORAGE_KEYS.user);
+    return null;
+  }
 }
 
 function isTokenExpired() {
