@@ -8,7 +8,7 @@
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
-    <script src="../api-client.js"></script>
+    <script src="../../api-client.js"></script>
     <style>
       * {
         box-sizing: border-box;
@@ -2418,7 +2418,7 @@ ALTER TABLE oral_results ADD COLUMN IF NOT EXISTS rubric_scores JSONB DEFAULT '{
         const session = getSession();
         if (!session || !["Teacher", "Admin"].includes(session.user.role)) {
           alert("⚠️ Trang tài liệu kỹ thuật chỉ dành cho Giảng viên/Admin.");
-          window.location.href = "index.html";
+          window.location.href = "../index.html";
         }
       })();
 
