@@ -4,12 +4,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AI Giảng bài - TTHCM</title>
-    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="../css/base/variables.css" />
+    <link rel="stylesheet" href="../css/base/reset.css" />
+    <link rel="stylesheet" href="../css/layout/layout.css" />
+    <link rel="stylesheet" href="../css/components/header.css" />
+    <link rel="stylesheet" href="../css/components/bottom-nav.css" />
+    <link rel="stylesheet" href="../css/components/card.css" />
+    <link rel="stylesheet" href="../css/components/button.css" />
+    <link rel="stylesheet" href="../css/components/modal.css" />
+    <link rel="stylesheet" href="../css/components/form.css" />
+    <link rel="stylesheet" href="../css/components/table-grid.css" />
+    <link rel="stylesheet" href="../css/components/badge.css" />
+    <link rel="stylesheet" href="../css/components/chat.css" />
+    <link rel="stylesheet" href="../css/components/quiz.css" />
+    <link rel="stylesheet" href="../css/components/progress-list.css" />
+    <link rel="stylesheet" href="../css/components/settings-row.css" />
+    <link rel="stylesheet" href="../css/components/misc.css" />
+    <link rel="stylesheet" href="../css/base/dark-mode.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
     />
-    <script src="../api-client.js"></script>
+    <script src="../../api-client.js"></script>
     <!-- PDF.js (đọc text từ PDF ở client trước khi gửi cho ai-service tạo bài giảng) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
@@ -717,7 +733,7 @@
   <body>
     <header class="app-header">
       <div class="header-inner">
-        <a href="index.html" class="logo-wrap">
+        <a href="../index.html" class="logo-wrap">
           <div class="logo-badge"><i class="fas fa-star"></i>MTA</div>
           <div class="logo-info">
             <div class="logo-title">AI Giảng bài</div>
@@ -1070,7 +1086,7 @@
     </main>
 
     <nav class="bottom-nav">
-      <a href="index.html" class="nav-item"
+      <a href="../index.html" class="nav-item"
         ><i class="fas fa-home"></i><span>Trang chủ</span></a
       >
       <a href="chat.html" class="nav-item"
@@ -1091,7 +1107,7 @@
       <a href="giang-bai.html" class="nav-item active"
         ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
       >
-      <a href="cai-dat.html" class="nav-item" id="navSettings"
+      <a href="../cai-dat.html" class="nav-item" id="navSettings"
         ><i class="fas fa-cog"></i><span>Tài khoản</span></a
       >
       <a href="admin.html" class="nav-item" id="navAdmin"
@@ -1109,8 +1125,8 @@
           if (navAdmin) {
             navAdmin.href =
               role === "Admin"
-                ? "admin/quan-tri-he-thong.html"
-                : "teacher/quan-ly-noi-dung.html";
+                ? "../admin/quan-tri-he-thong.html"
+                : "../teacher/quan-ly-noi-dung.html";
           }
         } else {
           document.getElementById("navAdmin")?.remove();
