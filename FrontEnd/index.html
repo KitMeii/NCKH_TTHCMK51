@@ -4,7 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Trang chủ - Giảng viên Ảo TTHCM</title>
-    <link rel="stylesheet" href="../style.css" />
+    <link rel="stylesheet" href="css/base/variables.css" />
+    <link rel="stylesheet" href="css/base/reset.css" />
+    <link rel="stylesheet" href="css/layout/layout.css" />
+    <link rel="stylesheet" href="css/components/header.css" />
+    <link rel="stylesheet" href="css/components/bottom-nav.css" />
+    <link rel="stylesheet" href="css/components/card.css" />
+    <link rel="stylesheet" href="css/components/button.css" />
+    <link rel="stylesheet" href="css/components/modal.css" />
+    <link rel="stylesheet" href="css/components/form.css" />
+    <link rel="stylesheet" href="css/components/table-grid.css" />
+    <link rel="stylesheet" href="css/components/badge.css" />
+    <link rel="stylesheet" href="css/components/chat.css" />
+    <link rel="stylesheet" href="css/components/quiz.css" />
+    <link rel="stylesheet" href="css/components/progress-list.css" />
+    <link rel="stylesheet" href="css/components/settings-row.css" />
+    <link rel="stylesheet" href="css/components/misc.css" />
+    <link rel="stylesheet" href="css/base/dark-mode.css" />
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
@@ -190,7 +206,7 @@
           </div>
           <button
             class="btn-start"
-            onclick="window.location = 'luyen-tap.html'"
+            onclick="window.location = 'student/luyen-tap.html'"
           >
             <i class="fas fa-play"></i> Bắt đầu học ngay →
           </button>
@@ -229,7 +245,7 @@
           >Truy cập nhanh
         </div>
         <div class="quick-grid">
-          <a href="chat.html" class="quick-card">
+          <a href="student/chat.html" class="quick-card">
             <div class="quick-icon" style="background: #fff3e0">
               <i class="fas fa-robot" style="color: #e65100"></i>
             </div>
@@ -238,7 +254,7 @@
               <div class="quick-sub">Hỏi đáp TTHCM</div>
             </div>
           </a>
-          <a href="luyen-tap.html" class="quick-card">
+          <a href="student/luyen-tap.html" class="quick-card">
             <div class="quick-icon" style="background: var(--red-bg)">
               <i class="fas fa-book-open" style="color: var(--red)"></i>
             </div>
@@ -247,7 +263,7 @@
               <div class="quick-sub">Quiz trắc nghiệm</div>
             </div>
           </a>
-          <a href="thi-thu.html" class="quick-card">
+          <a href="student/thi-thu.html" class="quick-card">
             <div class="quick-icon" style="background: #e3f2fd">
               <i class="fas fa-pencil-alt" style="color: #1565c0"></i>
             </div>
@@ -256,7 +272,7 @@
               <div class="quick-sub">TN + Vấn đáp AI</div>
             </div>
           </a>
-          <a href="giang-bai.html" class="quick-card">
+          <a href="student/giang-bai.html" class="quick-card">
             <div class="quick-icon" style="background: #e8f5e9">
               <i class="fas fa-chalkboard-teacher" style="color: #2e7d32"></i>
             </div>
@@ -265,7 +281,7 @@
               <div class="quick-sub">Upload PDF + TTS</div>
             </div>
           </a>
-          <a href="xep-hang.html" class="quick-card">
+          <a href="student/xep-hang.html" class="quick-card">
             <div class="quick-icon" style="background: #fff8e1">
               <i class="fas fa-trophy" style="color: #f9a825"></i>
             </div>
@@ -309,7 +325,7 @@
             </div>
             <button
               class="btn btn-red btn-sm btn-full"
-              onclick="window.location = 'luyen-tap.html'"
+              onclick="window.location = 'student/luyen-tap.html'"
             >
               Tiếp tục học →
             </button>
@@ -361,7 +377,7 @@
           <button
             class="btn btn-outline btn-sm btn-full"
             style="margin-top: 14px"
-            onclick="window.location = 'xep-hang.html'"
+            onclick="window.location = 'student/xep-hang.html'"
           >
             Xem tất cả thành tích →
           </button>
@@ -374,22 +390,22 @@
       <a href="index.html" class="nav-item active"
         ><i class="fas fa-home"></i><span>Trang chủ</span></a
       >
-      <a href="chat.html" class="nav-item"
+      <a href="student/chat.html" class="nav-item"
         ><i class="fas fa-robot"></i><span>Chat AI</span></a
       >
-      <a href="luyen-tap.html" class="nav-item"
+      <a href="student/luyen-tap.html" class="nav-item"
         ><i class="fas fa-book"></i><span>Luyện tập</span></a
       >
-      <a href="thi-thu.html" class="nav-item"
+      <a href="student/thi-thu.html" class="nav-item"
         ><i class="fas fa-pencil-alt"></i><span>Thi thử</span></a
       >
-      <a href="tien-do.html" class="nav-item"
+      <a href="student/tien-do.html" class="nav-item"
         ><i class="fas fa-calendar-alt"></i><span>Tiến độ</span></a
       >
-      <a href="xep-hang.html" class="nav-item"
+      <a href="student/xep-hang.html" class="nav-item"
         ><i class="fas fa-trophy"></i><span>Bảng XH</span></a
       >
-      <a href="giang-bai.html" class="nav-item"
+      <a href="student/giang-bai.html" class="nav-item"
         ><i class="fas fa-chalkboard-teacher"></i><span>Giảng bài</span></a
       >
       <a href="cai-dat.html" class="nav-item" id="navSettings"
@@ -526,23 +542,23 @@
           >
             <span
               class="search-tag"
-              onclick="window.location = 'luyen-tap.html'"
+              onclick="window.location = 'student/luyen-tap.html'"
               >Đạo đức cách mạng</span
             >
             <span
               class="search-tag"
-              onclick="window.location = 'luyen-tap.html'"
+              onclick="window.location = 'student/luyen-tap.html'"
               >Độc lập & CNXH</span
             >
-            <span class="search-tag" onclick="window.location = 'chat.html'"
+            <span class="search-tag" onclick="window.location = 'student/chat.html'"
               >Hỏi AI</span
             >
-            <span class="search-tag" onclick="window.location = 'thi-thu.html'"
+            <span class="search-tag" onclick="window.location = 'student/thi-thu.html'"
               >Thi thử</span
             >
             <span
               class="search-tag"
-              onclick="window.location = 'giang-bai.html'"
+              onclick="window.location = 'student/giang-bai.html'"
               >AI Giảng bài</span
             >
           </div>
@@ -558,7 +574,7 @@
           </div>
           <div style="display: flex; flex-direction: column; gap: 6px">
             <a
-              href="luyen-tap.html"
+              href="student/luyen-tap.html"
               style="
                 display: flex;
                 align-items: center;
@@ -576,7 +592,7 @@
               >
             </a>
             <a
-              href="thi-thu.html"
+              href="student/thi-thu.html"
               style="
                 display: flex;
                 align-items: center;
@@ -597,7 +613,7 @@
               >
             </a>
             <a
-              href="giang-bai.html"
+              href="student/giang-bai.html"
               style="
                 display: flex;
                 align-items: center;
@@ -618,7 +634,7 @@
               >
             </a>
             <a
-              href="chat.html"
+              href="student/chat.html"
               style="
                 display: flex;
                 align-items: center;
@@ -737,7 +753,7 @@
               class="btn btn-red btn-full"
               onclick="
                 dismissOnboarding();
-                window.location = 'luyen-tap.html';
+                window.location = 'student/luyen-tap.html';
               "
             >
               Bắt đầu học ngay 🚀
